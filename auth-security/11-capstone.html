@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 11 Capstone: Secure User Management — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:440px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+
+  /* 11a tree + routes */
+  .sys{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);gap:14px;margin-top:20px}
+  @media (max-width:800px){.sys{grid-template-columns:1fr}}
+  .tree{border:1px solid var(--border-2);border-radius:12px;background:#070b12;padding:14px 16px;font-family:var(--mono);font-size:.74rem;line-height:1.85;color:#cbd5e1}
+  .tree .d{color:#FDA4AF} .tree .c{color:var(--faint)} .tree .s{color:#7DD3FC;font-size:.62rem}
+  .routes{border:1px solid var(--border-2);border-radius:12px;background:var(--panel);overflow-x:auto}
+  .rt{display:grid;grid-template-columns:minmax(170px,1.3fr) minmax(170px,1.5fr);gap:10px;padding:8px 13px;border-bottom:1px solid rgba(255,255,255,.05);font-family:var(--mono);font-size:.68rem;min-width:380px}
+  .rt:last-child{border-bottom:none}
+  .rt.h{color:var(--faint);font-size:.6rem;letter-spacing:.07em;background:var(--panel-2)}
+  .rt .m{color:#cbd5e1} .rt .g{color:var(--faint)}
+  .rt .g b{font-weight:500;padding:1px 6px;border-radius:5px;margin-right:3px}
+  .g .pub{background:rgba(125,211,252,.12);color:#7DD3FC} .g .lim{background:rgba(251,191,36,.12);color:#fcd34d}
+  .g .au{background:rgba(251,113,133,.12);color:#FDA4AF} .g .ow{background:rgba(52,211,153,.12);color:#6ee7b7}
+  .g .ad{background:rgba(167,139,250,.14);color:#c4b5fd}
+
+  /* 11b pipeline */
+  .pl2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  @media (max-width:760px){.pl2{grid-template-columns:1fr}}
+  .layers{display:flex;flex-direction:column;gap:5px}
+  .lyr{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid var(--border);border-radius:9px;background:#070b12;padding:7px 10px;font-family:var(--mono);font-size:.68rem;color:#cbd5e1;transition:all .3s}
+  .lyr .li{text-align:center}
+  .lyr .ls{font-size:.6rem;color:var(--faint);white-space:nowrap}
+  .lyr.pass{border-color:rgba(52,211,153,.4)} .lyr.pass .li{color:var(--ok)}
+  .lyr.stop{border-color:rgba(248,113,113,.65);background:rgba(248,113,113,.08)} .lyr.stop .li,.lyr.stop .ls{color:var(--bad)}
+  .lyr.skip{opacity:.25}
+  .lyr.na{opacity:.45;border-style:dashed}
+  .lyr.ret{border-color:rgba(251,191,36,.5)} .lyr.ret .li{color:#fcd34d}
+  .side{display:flex;flex-direction:column;gap:10px}
+  .box{border:1px solid var(--border-2);border-radius:11px;background:#070b12;padding:11px 13px}
+  .box .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--faint);display:block;margin-bottom:7px}
+  .box pre{margin:0;font-family:var(--mono);font-size:.7rem;line-height:1.6;color:#cbd5e1;white-space:pre-wrap;overflow-wrap:anywhere}
+  .box.ok{border-color:rgba(52,211,153,.5)} .box.no{border-color:rgba(248,113,113,.55)}
+  .box.log{border-color:rgba(251,191,36,.35)} .box.log pre{color:#fcd34d}
+  .box pre .dim{color:var(--faint)}
+
+  /* 11e checklist */
+  .fck{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-top:20px}
+  .ckc{border:1px solid var(--border-2);border-radius:12px;background:var(--panel);padding:14px 15px}
+  .ckc h4{margin:0 0 8px;font-size:.95rem}
+  .ckc ul{margin:0;padding:0;list-style:none;font-size:.84rem;color:#c5d1e0;line-height:1.75}
+  .ckc li::before{content:"✓ ";color:var(--ok);font-family:var(--mono)}
+  .ckc .f{display:block;font-family:var(--mono);font-size:.6rem;color:var(--faint);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 11</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 11</span> · 🏁 Capstone</div>
+    <h1 class="rv d1">Secure User <span class="grad">Management System</span></h1>
+    <p class="lead rv d2">Every layer from sessions 01–10 in one running Go server — 13 files, 842 lines, standard library plus four packages.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>11a</b><span>structure &amp; routes</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>11b</b><span>one request, every layer</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>11c</b><span>wiring &amp; errors</span></div></div>
+      <div class="outcome rv d4"><span class="ck">✓</span><div><b>11d</b><span>the end-to-end run</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">11a</p>
+    <h2 class="rv">Thirteen files, nine routes</h2>
+    <p class="lead rv d1">One package per concern. Each route's guards are visible in one line of <code>routes.go</code>.</p>
+
+    <div class="sys rv d1">
+      <div class="tree">
+<span class="d">usermgmt/</span><br>
+├─ cmd/api/<span class="c">main.go</span> <span class="s">config · timeouts</span><br>
+└─ <span class="d">internal/</span><br>
+&nbsp;&nbsp;&nbsp;├─ app/<span class="c">routes.go</span> <span class="s">wiring</span><br>
+&nbsp;&nbsp;&nbsp;├─ auth/<span class="c">password.go</span> <span class="s">01</span><br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">token.go</span> <span class="s">02–03</span><br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">middleware.go</span> <span class="s">03</span><br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">refresh.go</span> <span class="s">04</span><br>
+&nbsp;&nbsp;&nbsp;├─ authz/<span class="c">authz.go</span> <span class="s">05–06</span><br>
+&nbsp;&nbsp;&nbsp;├─ httpx/<span class="c">decode.go</span> <span class="s">08</span><br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">security.go</span> <span class="s">08–09</span><br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">errors.go</span> <span class="s">11</span><br>
+&nbsp;&nbsp;&nbsp;├─ config/<span class="c">config.go</span> <span class="s">10</span><br>
+&nbsp;&nbsp;&nbsp;└─ user/<span class="c">user.go</span> <span class="s">model · store</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">handler.go</span> <span class="s">endpoints</span>
+      </div>
+      <div class="routes">
+        <div class="rt h"><span>ROUTE</span><span>GUARDS (outer → inner)</span></div>
+        <div class="rt"><span class="m">POST /auth/register</span><span class="g"><b class="lim">5/min</b></span></div>
+        <div class="rt"><span class="m">POST /auth/login</span><span class="g"><b class="lim">5/min</b></span></div>
+        <div class="rt"><span class="m">POST /auth/refresh</span><span class="g"><b class="lim">30/min</b><b class="pub">cookie</b></span></div>
+        <div class="rt"><span class="m">POST /auth/logout</span><span class="g"><b class="au">auth</b></span></div>
+        <div class="rt"><span class="m">GET /users/me</span><span class="g"><b class="au">auth</b></span></div>
+        <div class="rt"><span class="m">GET /users/{id}</span><span class="g"><b class="au">auth</b><b class="ow">owner|admin</b></span></div>
+        <div class="rt"><span class="m">PATCH /users/{id}</span><span class="g"><b class="au">auth</b><b class="ow">owner|admin</b></span></div>
+        <div class="rt"><span class="m">GET /admin/users</span><span class="g"><b class="au">auth</b><b class="ad">user:list</b></span></div>
+        <div class="rt"><span class="m">PATCH /admin/users/{id}/role</span><span class="g"><b class="au">auth</b><b class="ad">user:set_role</b></span></div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">Around <b>every</b> route: <code>Recover → SecureHeaders → CORS</code>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">The user store is in memory so the capstone runs anywhere; its methods are the seam where Postgres plugs in.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">11b</p>
+    <h2 class="rv">One request, every layer</h2>
+    <p class="lead rv d1">Seven real requests from the end-to-end run. Each stops at exactly one layer — or reaches the handler.</p>
+
+    <div class="rv d1" id="pViz" style="margin-top:20px">
+      <div class="stg" id="pStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">11c</p>
+    <h2 class="rv">The wiring and the one place errors are decided</h2>
+    <p class="lead rv d1">Handlers return errors. <code>httpx.Handle</code> turns safe ones into their status and everything else into a bare 500.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/app/routes.go</span></div>
+<pre><span class="k">func</span> <span class="fn">Routes</span>(h *user.<span class="fn">Handler</span>, origins []<span class="fn">string</span>) http.<span class="fn">Handler</span> {
+    mux := http.<span class="fn">NewServeMux</span>()
+    H := httpx.Handle
+    authn := <span class="k">func</span>(next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+        <span class="k">return</span> auth.<span class="fn">RequireAuth</span>(h.Tokens, h.Refresh, next)
+    }
+    owner := <span class="k">func</span>(next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+        <span class="k">return</span> <span class="fn">authn</span>(authz.<span class="fn">OwnerOrAdmin</span>(authz.<span class="fn">PathOwner</span>(<span class="str">"id"</span>), next))
+    }
+    admin := <span class="k">func</span>(p authz.<span class="fn">Perm</span>, next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+        <span class="k">return</span> <span class="fn">authn</span>(authz.<span class="fn">RequirePerm</span>(p, next))
+    }
+    <span class="com">// one bucket per route: a shared one locks out normal users</span>
+    loginLim := httpx.<span class="fn">NewIPLimiter</span>(time.Minute/<span class="num">5</span>, <span class="num">5</span>).Limit     <span class="com">// 5/min</span>
+    signupLim := httpx.<span class="fn">NewIPLimiter</span>(time.Minute/<span class="num">5</span>, <span class="num">5</span>).Limit    <span class="com">// 5/min</span>
+    refreshLim := httpx.<span class="fn">NewIPLimiter</span>(time.Minute/<span class="num">30</span>, <span class="num">30</span>).Limit <span class="com">// 30/min</span>
+
+    <span class="com">// public, rate limited</span>
+    mux.<span class="fn">Handle</span>(<span class="str">"POST /auth/register"</span>, <span class="fn">signupLim</span>(<span class="fn">H</span>(h.Register)))
+    mux.<span class="fn">Handle</span>(<span class="str">"POST /auth/login"</span>, <span class="fn">loginLim</span>(<span class="fn">H</span>(h.Login)))
+    mux.<span class="fn">Handle</span>(<span class="str">"POST /auth/refresh"</span>, <span class="fn">refreshLim</span>(<span class="fn">H</span>(h.RefreshToken)))
+
+    <span class="com">// authenticated</span>
+    mux.<span class="fn">Handle</span>(<span class="str">"POST /auth/logout"</span>, <span class="fn">authn</span>(<span class="fn">H</span>(h.Logout)))
+    mux.<span class="fn">Handle</span>(<span class="str">"GET /users/me"</span>, <span class="fn">authn</span>(<span class="fn">H</span>(h.Me)))
+
+    <span class="com">// owner or admin</span>
+    mux.<span class="fn">Handle</span>(<span class="str">"GET /users/{id}"</span>, <span class="fn">owner</span>(<span class="fn">H</span>(h.Get)))
+    mux.<span class="fn">Handle</span>(<span class="str">"PATCH /users/{id}"</span>, <span class="fn">owner</span>(<span class="fn">H</span>(h.Patch)))
+
+    <span class="com">// admin only</span>
+    mux.<span class="fn">Handle</span>(<span class="str">"GET /admin/users"</span>, <span class="fn">admin</span>(authz.ListUsers, <span class="fn">H</span>(h.List)))
+    mux.<span class="fn">Handle</span>(<span class="str">"PATCH /admin/users/{id}/role"</span>, <span class="fn">admin</span>(authz.SetRole, <span class="fn">H</span>(h.SetRole)))
+
+    <span class="k">return</span> httpx.<span class="fn">Recover</span>(httpx.<span class="fn">SecureHeaders</span>(httpx.<span class="fn">CORS</span>(origins, mux)))
+}</pre>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/httpx/errors.go</span></div>
+<pre><span class="com">// Error is an error that is safe to show the client.</span>
+<span class="k">type</span> <span class="fn">Error</span> <span class="k">struct</span> {
+    Status <span class="fn">int</span>
+    Msg    <span class="fn">string</span>
+}
+
+<span class="com">// Handle is the one place errors become responses.</span>
+<span class="k">func</span> <span class="fn">Handle</span>(h <span class="fn">HandlerFunc</span>) http.<span class="fn">Handler</span> {
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(<span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        err := <span class="fn">h</span>(w, r)
+        <span class="k">if</span> err == <span class="k">nil</span> {
+            <span class="k">return</span>
+        }
+        <span class="k">var</span> e *<span class="fn">Error</span>
+        <span class="k">if</span> !errors.<span class="fn">As</span>(err, &amp;e) {
+            slog.<span class="fn">Error</span>(<span class="str">"internal"</span>, <span class="str">"path"</span>, r.URL.Path, <span class="str">"err"</span>, err)
+            e = &amp;<span class="fn">Error</span>{<span class="num">500</span>, <span class="str">"internal error"</span>}
+        }
+        <span class="fn">JSON</span>(w, e.Status, <span class="k">map</span>[<span class="fn">string</span>]<span class="fn">string</span>{<span class="str">"error"</span>: e.Msg})
+    })
+}
+
+<span class="com">// Recover turns a panic into a clean 500; the stack goes to the log only.</span>
+<span class="k">func</span> <span class="fn">Recover</span>(next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(<span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        <span class="k">defer</span> <span class="k">func</span>() {
+            <span class="k">if</span> v := <span class="fn">recover</span>(); v != <span class="k">nil</span> {
+                slog.<span class="fn">Error</span>(<span class="str">"panic"</span>, <span class="str">"path"</span>, r.URL.Path, <span class="str">"value"</span>, v,
+                    <span class="str">"stack"</span>, <span class="fn">string</span>(debug.<span class="fn">Stack</span>()))
+                <span class="fn">JSON</span>(w, <span class="num">500</span>, <span class="k">map</span>[<span class="fn">string</span>]<span class="fn">string</span>{<span class="str">"error"</span>: <span class="str">"internal error"</span>})
+            }
+        }()
+        next.<span class="fn">ServeHTTP</span>(w, r)
+    })
+}</pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Safe errors are typed</b> (<code>*httpx.Error</code>): 400, 401, 404, 409, 413, 422, 429. Anything else — a DB error, a bug — becomes <code>internal error</code>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>The detail goes to the log</b>, keyed by path; the client never sees a hostname, SQL or stack.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><code>Recover</code> is outermost, so a panic anywhere — even in a middleware — still gets a clean reply.</span></div>
+    </div>
+
+    <div class="callout mistake rv d1" style="margin-top:18px"><span class="lbl">Found in the first run</span><p>The first version used <b>one</b> limiter for register, login and refresh. A normal journey — sign up, log in, refresh — hit <code>429</code> on its 6th request. Each route now has its own bucket, and refresh gets 30/min.</p></div>
+  </div>
+</section>
+
+<section id="d">
+  <div class="container">
+    <p class="eyebrow rv">11d</p>
+    <h2 class="rv">The end-to-end run</h2>
+    <p class="lead rv d1">Real TCP server, real HTTP client, Redis protocol via miniredis. Bodies are cut at 110 characters by the test driver.</p>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./cmd/e2e · stdout = what the client saw</span></div>
+<pre><span class="comm">── 1 · register &amp; login</span>
+<span class="out">POST /auth/register asha           → <span class="hi">201</span> {"id":"2","email":"asha@example.com","name":"Asha","role":"user","created_at":"2026-09-30T18:13:38.087930999Z"…
+POST /auth/register ravi           → <span class="hi">201</span> {"id":"3","email":"ravi@example.com","name":"Ravi","role":"user","created_at":"2026-09-30T18:13:38.455595843Z"…
+POST /auth/register (role:admin)   → <span class="em">400</span> {"error":"bad request"}
+POST /auth/register (bad input)    → <span class="em">422</span> {"error":"email: invalid; name: 1-80 chars; password: 8-72 bytes"}
+POST /auth/login wrong pw          → <span class="em">401</span> {"error":"invalid email or password"}
+POST /auth/login unknown email     → <span class="em">401</span> {"error":"invalid email or password"}
+POST /auth/login asha              → <span class="hi">200</span> {"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoidXNlciIsInN1YiI6IjIiLCJleHAiOjE3OTA3OTI5MTks…</span>
+<span class="comm">── 2 · authentication</span>
+<span class="out">GET /users/me (no token)           → <span class="em">401</span> {"error":"unauthorized"}
+GET /users/me asha                 → <span class="hi">200</span> {"id":"2","email":"asha@example.com","name":"Asha","role":"user","created_at":"2026-09-30T18:13:38.087930999Z"…</span>
+<span class="comm">── 3 · ownership &amp; RBAC</span>
+<span class="out">PATCH /users/2 asha (own)          → <span class="hi">200</span> {"id":"2","email":"asha@example.com","name":"Asha K","role":"user","created_at":"2026-09-30T18:13:38.087930999…
+PATCH /users/3 asha (ravi)         → <span class="em">404</span> {"error":"not found"}
+PATCH /users/3 admin               → <span class="hi">200</span> {"id":"3","email":"ravi@example.com","name":"Ravi S","role":"user","created_at":"2026-09-30T18:13:38.455595843…
+GET /admin/users asha              → <span class="em">403</span> {"error":"forbidden"}
+GET /admin/users admin             → <span class="hi">200</span> [{"id":"1","email":"admin@example.com","name":"Admin","role":"admin","created_at":"2026-09-30T18:13:37.7206601…</span>
+<span class="comm">── 4 · refresh rotation</span>
+<span class="out">POST /auth/refresh with R1         → <span class="hi">200</span> {"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoidXNlciIsInN1YiI6IjIiLCJleHAiOjE3OTA3OTI5MTks…
+POST /auth/refresh with R1 again   → <span class="em">401</span> {"error":"unauthorized"}
+POST /auth/refresh with R2         → <span class="em">401</span> {"error":"unauthorized"}</span>
+<span class="comm">── 5 · logout denies the access token</span>
+<span class="out">GET /users/me ravi                 → <span class="hi">200</span> {"id":"3","email":"ravi@example.com","name":"Ravi S","role":"user","created_at":"2026-09-30T18:13:38.455595843…
+POST /auth/logout ravi             → <span class="hi">204</span>
+GET /users/me ravi (same token)    → <span class="em">401</span> {"error":"unauthorized"}
+POST /auth/refresh ravi's cookie   → <span class="em">401</span> {"error":"unauthorized"}</span>
+<span class="comm">── 6 · hardening</span>
+<span class="out">PATCH /users/2 (2 MB body)         → <span class="em">413</span> {"error":"body too large"}
+OPTIONS from evil.example          → 204
+  headers: nosniff · DENY · max-age=63072000; includeSubDomains
+POST /auth/login (6th this minute) → <span class="em">429</span> {"error":"too many requests"}</span>
+<span class="comm">── 7 · errors never leak internals</span>
+<span class="out">GET /debug/db                      → <span class="em">500</span> {"error":"internal error"}
+GET /debug/panic                   → <span class="em">500</span> {"error":"internal error"}</span></pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>stderr = the server log (only you see this)</span></div>
+<pre><span class="out">level=ERROR msg=internal path=/debug/db err="pq: connection refused to 10.0.3.7:5432 (user api_app)"
+level=ERROR msg=panic path=/debug/panic value="assignment to entry in nil map" stack="goroutine 100 [running]:\nruntime/debug.Stack()…</span></pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>./api · started without REDIS_ADDR and JWT_SECRET</span></div>
+<pre><span class="out"><span class="em">ERROR refusing to start err="REDIS_ADDR is required\nJWT_SECRET must be ≥ 32 bytes"</span>
+exit=1</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">Step 1: <code>"role":"admin"</code> in the register body is <b>rejected</b> (unknown field) — and the handler hard-codes <code>"user"</code> anyway.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Step 4: replaying R1 revoked the family, so the legitimate R2 died too — reuse detection working.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Step 5: after logout the <b>same, unexpired</b> access token is refused — the <code>jti</code> denylist.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="e">
+  <div class="container">
+    <p class="eyebrow rv">11e</p>
+    <h2 class="rv">The brief, feature by feature</h2>
+    <p class="lead rv d1">Everything the capstone had to include — and the file it lives in.</p>
+
+    <div class="fck rv d1">
+      <div class="ckc"><h4>Registration &amp; login</h4><ul><li>bcrypt cost 12, dummy hash for unknown emails</li><li>15-min access JWT with <code>jti</code></li><li>7-day refresh, rotated, reuse-detected</li></ul><span class="f">auth/password.go · token.go · refresh.go</span></div>
+      <div class="ckc"><h4>Auth middleware</h4><ul><li>Bearer parse, <code>HS256</code> pinned</li><li>denylist check, fails closed</li><li>claims in <code>context</code></li></ul><span class="f">auth/middleware.go</span></div>
+      <div class="ckc"><h4>RBAC &amp; ownership</h4><ul><li>permission map, default deny</li><li><code>OwnerOrAdmin</code> → 404 for others</li><li>role never taken from input</li></ul><span class="f">authz/authz.go · user/handler.go</span></div>
+      <div class="ckc"><h4>Hardening</h4><ul><li>per-route rate limits</li><li>CORS allowlist, 5 security headers</li><li>1 MB bodies, strict JSON, validation</li><li>HttpOnly · Secure · SameSite cookie</li><li>server timeouts, config refuses bad boot</li></ul><span class="f">httpx/security.go · decode.go · cmd/api</span></div>
+      <div class="ckc"><h4>Centralised errors</h4><ul><li>one <code>Handle</code> maps errors to status</li><li>unknown errors → bare 500</li><li>panics recovered, stack to log only</li></ul><span class="f">httpx/errors.go</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">CAPSTONE · TOPIC 4</span>
+      <h4>Build it — then make the run above pass</h4>
+      <ul>
+        <li>Recreate the 13-file layout yourself; write each file from its session.</li>
+        <li>Your acceptance test is the 26-request end-to-end run: every status code must match.</li>
+        <li>Swap the in-memory store for PostgreSQL with the <code>api_app</code> role from session 10.</li>
+        <li>Stretch: move the limiter to Redis and run two instances behind one port.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">The whole track in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt"><b>Prove identity:</b> bcrypt, short JWTs, rotated refresh tokens in HttpOnly cookies.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt"><b>Decide access:</b> permissions by role, ownership per row, attributes where needed — default deny.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt"><b>Distrust input:</b> placeholders, size limits, strict JSON, rate limits, CORS, headers, TLS.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt"><b>Leak nothing:</b> secrets from env, <code>json:"-"</code>, redacted logs, one error handler, least-privilege roles.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="10-secrets-owasp.html"><span class="dir">← Previous</span><b>Secrets &amp; OWASP API Top 10</b></a>
+  <a class="next" href="overview.html"><span class="dir">Finish →</span><b>Back to the overview</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 11 Capstone</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var L = [
+    ["Recover","panic → 500"],
+    ["SecureHeaders","5 headers"],
+    ["CORS","allowlist"],
+    ["RateLimit","auth routes"],
+    ["RequireAuth","JWT + denylist"],
+    ["OwnerOrAdmin / RequirePerm","404 / 403"],
+    ["Decode","413 · 400 · 422"],
+    ["Handler","user.Handler"],
+    ["httpx.Handle","error → status"]
+  ];
+  // st: per-layer state string, one char each: p=pass s=stop k=skip n=not-on-route r=returns
+  mkAlgo("pViz","pStage",[
+    {q:"PATCH /users/2 · asha, own profile", qk:"ok", st:"pppnppppr",
+     req:'PATCH /users/2\nAuthorization: Bearer eyJ… (sub=2)\n{"name":"Asha K"}',
+     res:'200 {"id":"2","name":"Asha K","role":"user",…}', rk:"ok",
+     explain:"The happy path: every layer passes, the handler returns <code>nil</code>, and <code>Handle</code> has nothing to translate. <span class=\"ok\">200.</span>"},
+    {q:"PATCH /users/3 · asha tries ravi's profile", qk:"bad", st:"ppppsnkkk",
+     req:'PATCH /users/3\nAuthorization: Bearer eyJ… (sub=2)', res:'404 {"error":"not found"}', rk:"no",
+     explain:"Authenticated fine — then <code>OwnerOrAdmin</code> sees <code>sub 2 ≠ id 3</code>, role not admin. <b>Stops with 404</b>; body is never even decoded."},
+    {q:"GET /users/me · no token", qk:"bad", st:"pppnskkkk",
+     req:'GET /users/me\n(no Authorization header)', res:'401 {"error":"unauthorized"}', rk:"no",
+     explain:"<code>RequireAuth</code> finds no Bearer header → <b>401</b>. Nothing inside it runs."},
+    {q:"PATCH /users/2 · 2 MB body", qk:"bad", st:"pppnppskk",
+     req:'PATCH /users/2\nContent-Length: 2097163', res:'413 {"error":"body too large"}', rk:"no",
+     explain:"Token and ownership are fine, but <code>MaxBytesReader</code> cuts the body at 1 MB → <code>Decode</code> returns <b>ErrTooLarge → 413</b>."},
+    {q:"OPTIONS /users/me · Origin: evil.example", qk:"bad", st:"ppskkkkkk",
+     req:'OPTIONS /users/me\nOrigin: https://evil.example', res:'204 (no Access-Control-Allow-Origin)', rk:"no",
+     explain:"A preflight from an unlisted origin. <code>CORS</code> answers 204 <b>without</b> permission headers, so the browser never sends the real request."},
+    {q:"POST /auth/login · 6th attempt this minute", qk:"bad", st:"pppsnnkkk",
+     req:'POST /auth/login\nRemoteAddr: 127.0.0.1', res:'429 {"error":"too many requests"}\nRetry-After: 12', rk:"no",
+     explain:"Public route, so there's no auth layer — but the login bucket is empty → <b>429</b>. The password is never checked."},
+    {q:"GET /debug/panic · a handler that panics (demo route, wrapped in Recover only)", qk:"bad", st:"rnnnnnnsk",
+     req:'GET /debug/panic', res:'500 {"error":"internal error"}', rk:"no",
+     log:'level=ERROR msg=panic path=/debug/panic\n value="assignment to entry in nil map"\n stack="goroutine 100 [running]:…"',
+     explain:"The handler panics. The stack unwinds to <code>Recover</code> — outermost on every real route too: <span class=\"ok\">the client gets a bare 500, the stack goes only to the log.</span>"}
+  ], function(stage, fr){
+    var h = '<div class="vq '+(fr.qk||"")+'">'+fr.q+'</div><div class="pl2"><div class="layers">';
+    L.forEach(function(l,i){
+      var s = fr.st[i];
+      var cls = {p:"pass",s:"stop",k:"skip",n:"na",r:"ret"}[s];
+      var ic = {p:"✓",s:"✗",k:"·",n:"–",r:"↺"}[s];
+      var note = s==="n" ? "not on this route" : (s==="s" ? "stops here" : (s==="r" ? "catches it" : l[1]));
+      h += '<div class="lyr '+cls+'"><span class="li">'+ic+'</span><span>'+l[0]+'</span><span class="ls">'+note+'</span></div>';
+    });
+    h += '</div><div class="side">'+
+      '<div class="box"><span class="pl">REQUEST</span><pre>'+fr.req+'</pre></div>'+
+      '<div class="box '+fr.rk+'"><span class="pl">RESPONSE · what the client sees</span><pre>'+fr.res+'</pre></div>'+
+      (fr.log ? '<div class="box log"><span class="pl">SERVER LOG · only you see this</span><pre>'+fr.log+'</pre></div>' : '')+
+    '</div></div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

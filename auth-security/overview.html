@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authentication, Authorization &amp; Security — Overview</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+
+  .topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:20px}
+  .tcard{display:block;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:17px;min-height:0;transition:transform .25s,border-color .25s,background .25s}
+  .tcard:hover{transform:translateY(-3px);border-color:rgba(251,113,133,.5);background:var(--panel-2)}
+  .tcard.soon{opacity:.5;pointer-events:none}
+  .tc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .tc-no{font-family:var(--mono);font-size:.66rem;color:#FB7185;border:1px solid rgba(251,113,133,.3);border-radius:999px;padding:2px 9px}
+  .tc-tag{font-family:var(--mono);font-size:.6rem;padding:2px 8px;border-radius:999px;background:rgba(52,211,153,.14);color:var(--ok)}
+  .tc-tag.soon{background:var(--panel-2);color:var(--faint)}
+  .tcard h4{margin:0 0 7px;font-size:.97rem}
+  .tcard p{margin:0;font-size:.83rem;color:var(--muted);line-height:1.5}
+
+  .phase{display:flex;align-items:center;gap:11px;margin:30px 0 4px}
+  .phase .pn{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;border:1px solid rgba(251,113,133,.3);border-radius:999px;padding:3px 10px;flex-shrink:0}
+  .phase h3{margin:0;font-size:1rem;flex-shrink:0}
+  .phase .ln{flex:1;height:1px;background:var(--border)}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+
+  .flow{display:flex;flex-direction:column;align-items:center;margin-top:20px}
+  .fn{width:min(540px,100%);border:1px solid var(--border-2);border-radius:12px;background:var(--panel);padding:11px 15px;display:flex;align-items:center;gap:12px;opacity:.35;transform:translateY(6px);transition:all .45s}
+  .fn.lit{opacity:1;transform:none;border-color:rgba(251,113,133,.5);background:rgba(251,113,133,.07)}
+  .fn .fb{font-family:var(--mono);font-size:.63rem;color:#FB7185;border:1px solid rgba(251,113,133,.3);border-radius:6px;padding:2px 7px;flex-shrink:0;min-width:74px;text-align:center}
+  .fn .ft{font-size:.87rem;color:var(--text)}
+  .fn .fx{margin-left:auto;font-family:var(--mono);font-size:.65rem;color:var(--faint);white-space:nowrap}
+  .fn.end.lit{border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.07)}
+  .fn.end .fb{color:var(--ok);border-color:rgba(52,211,153,.3)}
+  .fa{color:var(--faint);font-size:.85rem;padding:4px 0;opacity:.35;transition:opacity .45s}
+  .fa.lit{opacity:1}
+  @media (max-width:560px){.fn .fx{display:none}}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · Overview</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="#topics">Sessions ↓</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv">Lecture Session · 🔐 Go</div>
+    <h1 class="rv d1">Authentication, Authorization <span class="grad">&amp; Security</span></h1>
+    <p class="lead rv d2">Eleven short sessions that build one secure User Management API in Go — from a hashed password to a hardened, rate-limited production backend.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>Prove</b><span>who the user is</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>Decide</b><span>what they may do</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>Harden</b><span>every request</span></div></div>
+      <div class="outcome rv d4"><span class="ck">✓</span><div><b>Ship</b><span>the capstone</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="system">
+  <div class="container">
+    <p class="eyebrow rv">01 · The System</p>
+    <h2 class="rv">One request, every layer we will build</h2>
+    <p class="lead rv d1">Each session adds one layer to the same request path. By session 11 all of them run, in this order.</p>
+
+    <div class="rv d1" data-run="flowlit">
+      <div class="flow">
+        <div class="fn" data-f><span class="fb">REQUEST</span><span class="ft">PATCH /users/8</span><span class="fx">from the browser</span></div>
+        <span class="fa" data-f>▼</span>
+        <div class="fn" data-f><span class="fb">LIMIT</span><span class="ft">Rate limit · body size · CORS</span><span class="fx">sessions 08–09</span></div>
+        <span class="fa" data-f>▼</span>
+        <div class="fn" data-f><span class="fb">AUTHN</span><span class="ft">Verify the JWT, attach claims</span><span class="fx">sessions 01–04</span></div>
+        <span class="fa" data-f>▼</span>
+        <div class="fn" data-f><span class="fb">AUTHZ</span><span class="ft">Role · ownership · permission</span><span class="fx">sessions 05–07</span></div>
+        <span class="fa" data-f>▼</span>
+        <div class="fn" data-f><span class="fb">HANDLER</span><span class="ft">Validated input, safe output</span><span class="fx">session 10</span></div>
+        <span class="fa" data-f>▼</span>
+        <div class="fn end" data-f><span class="fb">RESPONSE</span><span class="ft">200 — or a clean error, no stack trace</span><span class="fx">session 11</span></div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">Go standard library first: <b><code>net/http</code></b>, Go 1.22 route patterns, <code>crypto/subtle</code>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Only four libraries: <b>bcrypt</b>, <b>golang-jwt/v5</b>, <b>x/time/rate</b>, <b>go-redis</b>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Every terminal output on these pages comes from a <b>real run</b>.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="topics" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">02 · The 11 Sessions</p>
+    <h2 class="rv">Everything in this track</h2>
+
+    <div class="phase rv"><span class="pn">Topic 1</span><h3>Authentication deep dive</h3><span class="ln"></span></div>
+    <div class="topic-grid">
+      <a class="tcard rv" href="01-identity-cryptography.html">
+        <div class="tc-head"><span class="tc-no">01</span><span class="tc-tag">Ready</span></div>
+        <h4>Identity &amp; Cryptography</h4>
+        <p>AuthN vs AuthZ · bcrypt and its cost · constant-time comparison.</p>
+      </a>
+      <a class="tcard rv" href="02-jwt-structure.html">
+        <div class="tc-head"><span class="tc-no">02</span><span class="tc-tag">Ready</span></div>
+        <h4>JWT Structure</h4>
+        <p>Header · payload · signature · standard claims · why base64 is not encryption.</p>
+      </a>
+      <a class="tcard rv" href="03-jwt-middleware.html">
+        <div class="tc-head"><span class="tc-no">03</span><span class="tc-tag">Ready</span></div>
+        <h4>Issuing &amp; Validating JWTs</h4>
+        <p>Signing access tokens · auth middleware · claims in <code>context</code>.</p>
+      </a>
+      <a class="tcard rv" href="04-token-lifecycle.html">
+        <div class="tc-head"><span class="tc-no">04</span><span class="tc-tag">Ready</span></div>
+        <h4>Token Lifecycle</h4>
+        <p>Access + refresh · HttpOnly cookies vs Bearer · rotation and Redis revocation.</p>
+      </a>
+    </div>
+
+    <div class="phase rv"><span class="pn">Topic 2</span><h3>Authorization &amp; access control</h3><span class="ln"></span></div>
+    <div class="topic-grid">
+      <a class="tcard rv" href="05-rbac.html">
+        <div class="tc-head"><span class="tc-no">05</span><span class="tc-tag">Ready</span></div>
+        <h4>Role-Based Access Control</h4>
+        <p>Roles and permission maps · role-enforcement middleware.</p>
+      </a>
+      <a class="tcard rv" href="06-ownership-idor.html">
+        <div class="tc-head"><span class="tc-no">06</span><span class="tc-tag">Ready</span></div>
+        <h4>Ownership &amp; IDOR</h4>
+        <p>Claims vs URL ids · owner-or-admin guard.</p>
+      </a>
+      <a class="tcard rv" href="07-abac-permissions.html">
+        <div class="tc-head"><span class="tc-no">07</span><span class="tc-tag">Ready</span></div>
+        <h4>Fine-Grained Permissions</h4>
+        <p>ABAC attributes · explicit permission checks.</p>
+      </a>
+    </div>
+
+    <div class="phase rv"><span class="pn">Topic 3</span><h3>Backend security &amp; hardening</h3><span class="ln"></span></div>
+    <div class="topic-grid">
+      <a class="tcard rv" href="08-request-defense.html">
+        <div class="tc-head"><span class="tc-no">08</span><span class="tc-tag">Ready</span></div>
+        <h4>Request Defense</h4>
+        <p>Validation · body limits · token-bucket rate limiting.</p>
+      </a>
+      <a class="tcard rv" href="09-headers-cors-tls.html">
+        <div class="tc-head"><span class="tc-no">09</span><span class="tc-tag">Ready</span></div>
+        <h4>Headers, CORS &amp; TLS</h4>
+        <p>CORS preflight · security headers · HSTS and secure cookies.</p>
+      </a>
+      <a class="tcard rv" href="10-secrets-owasp.html">
+        <div class="tc-head"><span class="tc-no">10</span><span class="tc-tag">Ready</span></div>
+        <h4>Secrets &amp; OWASP API Top 10</h4>
+        <p>Env config · hiding sensitive fields · least privilege · BOLA/BFLA.</p>
+      </a>
+    </div>
+
+    <div class="phase rv"><span class="pn">Topic 4</span><h3>Capstone</h3><span class="ln"></span></div>
+    <div class="topic-grid">
+      <a class="tcard rv" href="11-capstone.html">
+        <div class="tc-head"><span class="tc-no">11</span><span class="tc-tag">Ready</span></div>
+        <h4>Secure User Management System</h4>
+        <p>Every layer, wired together into one production-ready backend.</p>
+      </a>
+    </div>
+
+    <div class="rv" style="border-radius:18px;padding:28px;text-align:center;margin-top:32px;border:1px solid var(--border-2);background:linear-gradient(180deg,rgba(251,113,133,.08),transparent)">
+      <h2 style="margin:0 0 8px;font-size:1.25rem">Security is a pipeline, not a feature</h2>
+      <p style="margin:0 auto;max-width:50ch;color:#c5d1e0;font-size:.92rem">Start with the one thing every login depends on: never storing the password.</p>
+      <div class="btnrow" style="justify-content:center;margin-top:20px"><a class="btn" href="01-identity-cryptography.html">Start Session 01 →</a></div>
+    </div>
+  </div>
+</section>
+
+<div class="footer">Mentoring · Authentication, Authorization &amp; Security</div>
+<script src="../assets/app.js"></script>
+<script>
+SQLViz.register("flowlit", function(el){
+  var s=el.querySelectorAll("[data-f]"), t=SQLViz.timers(el);
+  s.forEach(function(x){ x.classList.remove("lit"); });
+  if(SQLViz.reduce){ s.forEach(function(x){ x.classList.add("lit"); }); return; }
+  s.forEach(function(x,i){ t.push(setTimeout(function(){ x.classList.add("lit"); }, 180*i+200)); });
+});
+</script>
+</body>
+</html>

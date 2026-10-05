@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 06 Ownership &amp; IDOR — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:360px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* idor stage */
+  .url{display:flex;align-items:center;gap:8px;background:#070b12;border:1px solid var(--border-2);border-radius:999px;padding:8px 14px;font-family:var(--mono);font-size:.78rem;color:#cbd5e1;max-width:460px;margin:0 auto 14px}
+  .url .lock{color:var(--ok)} .url .id{color:#fcd34d;background:rgba(251,191,36,.14);padding:0 4px;border-radius:4px}
+  .flowi{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr) 26px minmax(0,1fr);align-items:stretch}
+  @media (max-width:700px){.flowi{grid-template-columns:1fr}.flowi .par{transform:rotate(90deg);padding:4px 0}}
+  .pbox{border:1px solid var(--border-2);border-radius:12px;background:#070b12;padding:11px 12px;transition:all .3s}
+  .pbox .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--faint);display:block;margin-bottom:7px}
+  .pbox .pv{font-family:var(--mono);font-size:.7rem;color:#cbd5e1;line-height:1.6;overflow-wrap:anywhere}
+  .pbox.ok{border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.05)}
+  .pbox.no{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.06)}
+  .pbox.skip{opacity:.3;border-style:dashed}
+  .pbox .cmp{margin-top:6px;color:#FDA4AF}
+  .par{display:grid;place-items:center;color:var(--faint)}
+  .rows{margin-top:14px;display:flex;flex-direction:column;gap:5px}
+  .ur{display:grid;grid-template-columns:36px minmax(0,1fr) minmax(0,1.4fr);gap:10px;font-family:var(--mono);font-size:.68rem;padding:6px 10px;border-radius:8px;border:1px solid var(--border);color:var(--faint)}
+  .ur.mine{border-color:rgba(52,211,153,.4);color:#6ee7b7}
+  .ur.leak{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.07);color:#fca5a5}
+  .ur.safe{border-color:rgba(52,211,153,.25)}
+  .guard{display:inline-block;font-family:var(--mono);font-size:.6rem;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .guard.off{background:rgba(248,113,113,.14);color:#fca5a5} .guard.on{background:rgba(52,211,153,.14);color:#6ee7b7}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 06</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 06</span> · 🪪 Ownership</div>
+    <h1 class="rv d1">Ownership &amp; <span class="grad">IDOR</span></h1>
+    <p class="lead rv d2">A valid token proves who you are — not that this row is yours.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>6a</b><span>the IDOR attack</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>6b</b><span>generic ownership guard</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">6a</p>
+    <h2 class="rv">Change one number in the URL</h2>
+    <p class="lead rv d1"><b>I</b>nsecure <b>D</b>irect <b>O</b>bject <b>R</b>eference: the server trusts the id in the request. Asha is user 7.</p>
+
+    <div class="rv d1" id="iViz" style="margin-top:20px">
+      <div class="stg" id="iStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi no"><span class="bm">✗</span><span class="bt"><b>Authentication passed every time</b> — Asha's token is genuine. The bug is a missing authorization check.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">OWASP calls this <b>BOLA</b> (Broken Object Level Authorization) — #1 on the API Top 10.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">UUIDs instead of 7, 8, 9 make guessing harder but <b>fix nothing</b> — ids leak in links, logs and emails.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">6b</p>
+    <h2 class="rv">One guard for every owned resource</h2>
+    <p class="lead rv d1">The middleware only needs one question answered: <i>who owns this?</i> Each route passes a function that answers it.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/authz/owner.go</span></div>
+<pre><span class="com">// OwnerFunc returns the user id that owns the target.</span>
+<span class="k">type</span> <span class="fn">OwnerFunc</span> <span class="k">func</span>(r *http.<span class="fn">Request</span>) (<span class="fn">string</span>, <span class="fn">error</span>)
+
+<span class="com">// PathOwner: the {param} in the URL *is* the owner id.</span>
+<span class="k">func</span> <span class="fn">PathOwner</span>(param <span class="fn">string</span>) <span class="fn">OwnerFunc</span> {
+    <span class="k">return</span> <span class="k">func</span>(r *http.<span class="fn">Request</span>) (<span class="fn">string</span>, <span class="fn">error</span>) {
+        <span class="k">return</span> r.<span class="fn">PathValue</span>(param), <span class="k">nil</span>
+    }
+}
+
+<span class="com">// PostOwner: load the post, return who owns it.</span>
+<span class="k">func</span> <span class="fn">PostOwner</span>(r *http.<span class="fn">Request</span>) (<span class="fn">string</span>, <span class="fn">error</span>) {
+    p, ok := posts[r.<span class="fn">PathValue</span>(<span class="str">"id"</span>)]
+    <span class="k">if</span> !ok {
+        <span class="k">return</span> <span class="str">""</span>, ErrNotFound
+    }
+    <span class="k">return</span> p.OwnerID, <span class="k">nil</span>
+}
+
+<span class="k">func</span> <span class="fn">OwnerOrAdmin</span>(owner <span class="fn">OwnerFunc</span>,
+    next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    fn := <span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        c := auth.<span class="fn">ClaimsFrom</span>(r.<span class="fn">Context</span>())
+        id, err := <span class="fn">owner</span>(r)
+        <span class="k">if</span> err != <span class="k">nil</span> {
+            http.<span class="fn">Error</span>(w, <span class="str">"not found"</span>, <span class="num">404</span>)
+            <span class="k">return</span>
+        }
+        <span class="k">if</span> c.Subject != id &amp;&amp; c.Role != <span class="str">"admin"</span> {
+            http.<span class="fn">Error</span>(w, <span class="str">"not found"</span>, <span class="num">404</span>)
+            <span class="k">return</span>
+        }
+        next.<span class="fn">ServeHTTP</span>(w, r)
+    }
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(fn)
+}
+
+<span class="com">// wiring</span>
+mux.<span class="fn">Handle</span>(<span class="str">"PATCH /users/{id}"</span>, <span class="fn">guard</span>(<span class="fn">PathOwner</span>(<span class="str">"id"</span>), patchUser))
+mux.<span class="fn">Handle</span>(<span class="str">"PATCH /posts/{id}"</span>, <span class="fn">guard</span>(PostOwner, editPost))</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/06</span></div>
+<pre><span class="comm">── vulnerable: auth only, no ownership check</span>
+<span class="out">asha GET /users/7 → 200 {"id":"7","name":"Asha","email":"asha@example.com"}
+asha GET /users/8 → <span class="em">200 {"id":"8","name":"Ravi","email":"ravi@example.com"}</span>
+asha GET /users/9 → <span class="em">200 {"id":"9","name":"Meera","email":"meera@example.com"}</span></span>
+<span class="comm">── guarded: OwnerOrAdmin</span>
+<span class="out">asha  GET   /users/7 → <span class="hi">200</span> {"id":"7","name":"Asha","email":"asha@example.com"}
+asha  GET   /users/8 → 404 not found
+asha  PATCH /users/7 → <span class="hi">200</span> {"id":"7","name":"Asha K","email":"asha@example.com"}
+asha  PATCH /users/8 → 404 not found
+admin PATCH /users/8 → <span class="hi">200</span> {"id":"8","name":"Ravi S","email":"ravi@example.com"}
+asha  PATCH /posts/3 → 404 not found
+admin PATCH /posts/3 → <span class="hi">200</span> post updated</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Compare against <code>c.Subject</code></b> from the verified token — never an id from the body or a header.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>404, not 403</b>, for someone else's resource — don't confirm that user 8 exists.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Nested resources (a post, an order) <b>load the owner from the database</b> — the URL alone can't tell you.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">For list endpoints, filter in the query: <code>WHERE owner_id = $1</code>.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">HANDS-ON · TOPIC 2</span>
+      <h4>Edit own profile — or any, as Admin</h4>
+      <ul>
+        <li><code>PATCH /users/{id}</code> wrapped in <code>RequireAuth(OwnerOrAdmin(PathOwner("id"), …))</code>.</li>
+        <li>A user can change only their own name; an admin can change anyone's.</li>
+        <li>Reuse the same guard for <code>PATCH /posts/{id}</code> with a <code>PostOwner</code> loader.</li>
+        <li>Tests: own → 200, other → 404, admin → 200, no token → 401.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 06 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">IDOR / BOLA: a valid user reading or writing a row that isn't theirs.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">Every object access checks <code>owner == claims.Subject</code> (or admin).</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">One generic guard + a small <code>OwnerFunc</code> per resource type.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Answer 404 to non-owners; UUIDs are not a substitute for the check.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="05-rbac.html"><span class="dir">← Previous</span><b>Role-Based Access Control</b></a>
+  <a class="next" href="07-abac-permissions.html"><span class="dir">Next session →</span><b>Fine-Grained Permissions</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 06 Ownership &amp; IDOR</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var U = {"7":["Asha","asha@example.com"],"8":["Ravi","ravi@example.com"],"9":["Meera","meera@example.com"]};
+  // seen: map id → "mine" | "leak" | "safe"
+  mkAlgo("iViz","iStage",[
+    {who:"asha", sub:"7", role:"user", id:"7", guard:false, res:"200", seen:{"7":"mine"},
+     explain:"Asha opens her own profile. Token valid, id matches — <b>200</b>, as expected."},
+    {who:"asha", sub:"7", role:"user", id:"8", guard:false, res:"200", seen:{"7":"mine","8":"leak"},
+     explain:"She edits the URL: <code>7 → 8</code>. The token is still valid, the handler just loads row 8. <span class=\"warn\">Ravi's email leaks.</span>"},
+    {who:"asha", sub:"7", role:"user", id:"9", guard:false, res:"200", seen:{"7":"mine","8":"leak","9":"leak"},
+     explain:"A loop over 1…N dumps <b>every user</b>. No brute force, no stolen password — one missing check."},
+    {who:"asha", sub:"7", role:"user", id:"8", guard:true, res:"404", seen:{"7":"mine","8":"safe","9":"safe"},
+     explain:"Add <code>OwnerOrAdmin</code>: it compares <code>sub=7</code> with <code>{id}=8</code>. No match, not admin → <b>404</b>. The handler never runs."},
+    {who:"asha", sub:"7", role:"user", id:"7", guard:true, res:"200", seen:{"7":"mine","8":"safe","9":"safe"},
+     explain:"Her own id still works — <span class=\"ok\">the guard only blocks what isn't hers.</span>"},
+    {who:"admin", sub:"1", role:"admin", id:"8", guard:true, res:"200", seen:{"8":"mine"},
+     explain:"An <b>admin</b> token passes the same guard for any id — the second half of <code>c.Role != \"admin\"</code>."}
+  ], function(stage, fr){
+    var match = fr.sub===fr.id, admin = fr.role==="admin";
+    var allowed = !fr.guard || match || admin;
+    var q = fr.guard ? '<span class="guard on">OwnerOrAdmin ON</span>' : '<span class="guard off">no ownership check</span>';
+    var h = '<div class="vq '+(fr.guard?"ok":"bad")+'">'+fr.who+' · sub='+fr.sub+' · role='+fr.role+' '+q+'</div>';
+    h += '<div class="url"><span class="lock">🔒</span>GET /users/<span class="id">'+fr.id+'</span></div>';
+    h += '<div class="flowi">'+
+      '<div class="pbox ok"><span class="pl">RequireAuth</span><div class="pv">token valid ✓<br>sub = '+fr.sub+'</div></div>'+
+      '<div class="par">→</div>'+
+      (fr.guard
+        ? '<div class="pbox '+(allowed?"ok":"no")+'"><span class="pl">OwnerOrAdmin</span><div class="pv">owner = {id} = '+fr.id+'<div class="cmp">'+fr.sub+(match?" == ":" ≠ ")+fr.id+(admin?" · but admin ✓":"")+'</div></div></div>'
+        : '<div class="pbox skip"><span class="pl">ownership check</span><div class="pv">— missing —</div></div>')+
+      '<div class="par">→</div>'+
+      '<div class="pbox '+(allowed?(fr.guard||match?"ok":"no"):"skip")+'"><span class="pl">getUser</span><div class="pv">'+
+        (allowed ? 'users["'+fr.id+'"]<div class="cmp">'+fr.res+' '+U[fr.id][0]+'</div>' : 'never runs<div class="cmp">404 not found</div>')+'</div></div>'+
+    '</div>';
+    h += '<div class="rows">';
+    ["7","8","9"].forEach(function(id){
+      var st = fr.seen[id];
+      var cls = st==="mine"?"mine":(st==="leak"?"leak":(st==="safe"?"safe":""));
+      var data = st==="mine"||st==="leak" ? U[id][1] : (st==="safe" ? "hidden · 404" : "—");
+      h += '<div class="ur '+cls+'"><span>#'+id+'</span><span>'+U[id][0]+'</span><span>'+data+'</span></div>';
+    });
+    h += '</div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

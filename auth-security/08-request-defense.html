@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 08 Request Defense — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:330px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* 8a injection panes */
+  .inj{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+  @media (max-width:760px){.inj{grid-template-columns:1fr}}
+  .ip{border:1px solid var(--border-2);border-radius:12px;background:#070b12;padding:13px 14px}
+  .ip.no{border-color:rgba(248,113,113,.5)} .ip.ok{border-color:rgba(52,211,153,.5)}
+  .ip .pl{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;display:block;margin-bottom:9px}
+  .ip.no .pl{color:#fca5a5} .ip.ok .pl{color:#6ee7b7}
+  .ip pre{margin:0;font-family:var(--mono);font-size:.72rem;line-height:1.7;color:#cbd5e1;white-space:pre-wrap;overflow-wrap:anywhere}
+  .ip pre .x{background:rgba(248,113,113,.2);color:#fecaca;border-radius:3px}
+  .ip pre .d{background:rgba(52,211,153,.15);color:#a7f3d0;border-radius:3px}
+  .ip pre .c{color:var(--faint)}
+  .ip .res{margin-top:10px;font-family:var(--mono);font-size:.74rem}
+  .ip.no .res{color:var(--bad)} .ip.ok .res{color:var(--ok)}
+  .inbox{font-family:var(--mono);font-size:.74rem;text-align:center;color:#cbd5e1;border:1px dashed var(--border-2);border-radius:9px;padding:9px;margin-top:18px}
+  .inbox b{color:#fcd34d;font-weight:500}
+
+  /* 8b gate */
+  .gate{display:flex;flex-direction:column;gap:6px;margin-top:20px;max-width:640px}
+  .gt{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--border-2);border-radius:11px;background:var(--panel);padding:10px 13px;opacity:.35;transform:translateX(-6px);transition:all .4s}
+  .gt.lit{opacity:1;transform:none}
+  .gt .gn{font-family:var(--mono);font-size:.7rem;color:#FB7185;text-align:center}
+  .gt .gd b{display:block;font-size:.9rem;color:var(--text)}
+  .gt .gd span{font-family:var(--mono);font-size:.68rem;color:var(--faint)}
+  .gt .gc{font-family:var(--mono);font-size:.7rem;color:var(--bad);white-space:nowrap}
+  .gt.end .gc{color:var(--ok)}
+
+  /* 8c bucket */
+  .bk{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:center}
+  @media (max-width:700px){.bk{grid-template-columns:1fr}}
+  .bucket{width:190px;margin:0 auto;position:relative}
+  .drip{text-align:center;font-family:var(--mono);font-size:.62rem;color:#7DD3FC;margin-bottom:6px}
+  .pail{border:2px solid rgba(251,113,133,.5);border-top:none;border-radius:0 0 22px 22px;height:150px;display:flex;flex-direction:column-reverse;align-items:center;gap:6px;padding:10px 0}
+  .tk{width:120px;height:18px;border-radius:9px;background:linear-gradient(90deg,#FB7185,#fda4af);transition:all .3s}
+  .tk.part{background:linear-gradient(90deg,rgba(251,113,133,.35),rgba(251,113,133,.1));border:1px dashed rgba(251,113,133,.6)}
+  .tk.gone{background:none;border:1px dashed var(--border-2)}
+  .cnt{text-align:center;font-family:var(--mono);font-size:.74rem;color:#cbd5e1;margin-top:8px}
+  .clock{text-align:center;font-family:var(--mono);font-size:.8rem;color:#FDA4AF;margin-bottom:10px}
+  .reqs{display:flex;flex-direction:column;gap:5px}
+  .rq{display:grid;grid-template-columns:54px minmax(0,1fr) 54px;gap:8px;font-family:var(--mono);font-size:.68rem;padding:6px 9px;border-radius:8px;border:1px solid var(--border);color:#cbd5e1}
+  .rq .st{text-align:right}
+  .rq.ok .st{color:var(--ok)} .rq.no{border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.06)} .rq.no .st{color:var(--bad)}
+  .rq.new{box-shadow:0 0 0 2px rgba(251,113,133,.4)}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 08</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 08</span> · 🧱 Hardening</div>
+    <h1 class="rv d1">Request <span class="grad">Defense</span></h1>
+    <p class="lead rv d2">Treat every byte from the client as hostile — its content, its size, and how often it arrives.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>8a</b><span>injection</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>8b</b><span>size + shape validation</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>8c</b><span>rate limiting</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">8a</p>
+    <h2 class="rv">Input is data, never code</h2>
+    <p class="lead rv d1">The same password field, sent to two versions of the login query. Real SQLite, real result.</p>
+
+    <div class="inbox rv d1">password typed by the attacker: <b>' OR '1'='1</b></div>
+
+    <div class="inj rv d1">
+      <div class="ip no"><span class="pl">✗ STRING CONCATENATION</span>
+<pre><span class="c">// "... AND pw = '" + pw + "'"</span>
+SELECT count(*) FROM users
+WHERE email = 'nobody@x.com'
+  AND pw = '<span class="x">' OR '1'='1</span>'</pre>
+        <div class="res">rows matched: 1 → logged in</div>
+      </div>
+      <div class="ip ok"><span class="pl">✓ PLACEHOLDER</span>
+<pre><span class="c">// db.QueryRow("... AND pw = ?", email, pw)</span>
+SELECT count(*) FROM users
+WHERE email = ?
+  AND pw = ?   <span class="c">← "<span class="d">' OR '1'='1</span>"</span></pre>
+        <div class="res">rows matched: 0</div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi ok"><span class="bm">✓</span><span class="bt"><b>Always pass values as arguments</b> (<code>?</code> / <code>$1</code>). The driver sends them separately — they can't change the query.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">GORM's <code>Where("email = ?", e)</code> is safe; <code>Where("email = " + e)</code> is not.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Column names and <code>ORDER BY</code> can't be placeholders — pick them from an <b>allowlist</b>.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">8b</p>
+    <h2 class="rv">One gate for every request body</h2>
+    <p class="lead rv d1">Size first, then JSON shape, then business rules. Each failure has its own status code.</p>
+
+    <div class="gate rv d1" data-run="gate">
+      <div class="gt" data-f><span class="gn">1</span><div class="gd"><b>Size limit</b><span>http.MaxBytesReader · 1 MB</span></div><span class="gc">413</span></div>
+      <div class="gt" data-f><span class="gn">2</span><div class="gd"><b>Valid JSON</b><span>json.Decoder</span></div><span class="gc">400</span></div>
+      <div class="gt" data-f><span class="gn">3</span><div class="gd"><b>No unknown fields</b><span>DisallowUnknownFields</span></div><span class="gc">400</span></div>
+      <div class="gt" data-f><span class="gn">4</span><div class="gd"><b>Business rules</b><span>Validate() · every error at once</span></div><span class="gc">422</span></div>
+      <div class="gt end" data-f><span class="gn">✓</span><div class="gd"><b>Handler</b><span>typed, checked input</span></div><span class="gc">→</span></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/httpx/decode.go</span></div>
+<pre><span class="k">func</span> <span class="fn">decode</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>,
+    v <span class="fn">any</span>) <span class="fn">error</span> {
+    r.Body = http.<span class="fn">MaxBytesReader</span>(w, r.Body, <span class="num">1</span>&lt;&lt;<span class="num">20</span>) <span class="com">// 1 MB</span>
+    dec := json.<span class="fn">NewDecoder</span>(r.Body)
+    dec.<span class="fn">DisallowUnknownFields</span>()
+    <span class="k">return</span> dec.<span class="fn">Decode</span>(v)
+}
+
+<span class="k">func</span> (l <span class="fn">LoginReq</span>) <span class="fn">Validate</span>() <span class="fn">error</span> {
+    <span class="k">var</span> errs []<span class="fn">error</span>
+    <span class="k">if</span> _, err := mail.<span class="fn">ParseAddress</span>(l.Email); err != <span class="k">nil</span> {
+        errs = <span class="fn">append</span>(errs, errors.<span class="fn">New</span>(<span class="str">"email: invalid"</span>))
+    }
+    <span class="k">if</span> n := <span class="fn">len</span>(l.Password); n &lt; <span class="num">8</span> || n &gt; <span class="num">72</span> {
+        errs = <span class="fn">append</span>(errs, errors.<span class="fn">New</span>(<span class="str">"password: 8-72 bytes"</span>))
+    }
+    <span class="k">return</span> errors.<span class="fn">Join</span>(errs...)
+}
+
+<span class="com">// in the handler</span>
+<span class="k">var</span> tooBig *http.<span class="fn">MaxBytesError</span>
+<span class="k">if</span> errors.<span class="fn">As</span>(err, &amp;tooBig) {
+    http.<span class="fn">Error</span>(w, <span class="str">"body too large"</span>, <span class="num">413</span>)
+    <span class="k">return</span>
+}</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/08 · POST /login</span></div>
+<pre><span class="out">401 invalid email or password                <span class="comm"># well-formed, wrong password</span>
+<span class="em">422 email: invalid; password: 8-72 bytes</span>      <span class="comm"># both errors, one reply</span>
+<span class="em">400 bad json: json: unknown field "role"</span>     <span class="comm"># mass-assignment attempt</span>
+<span class="em">400 bad json: unexpected EOF</span>
+<span class="em">413 body too large</span>   (2 MB body)</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Go's default is no size limit</b> — without <code>MaxBytesReader</code> one request can fill your memory.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Validate, don't sanitize, on the way in.</b> Escape on the way <i>out</i> — HTML templates, SQL placeholders.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Unknown-field rejection stops <code>"role":"admin"</code> sneaking into a struct.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">8c</p>
+    <h2 class="rv">A token bucket on <code>/login</code></h2>
+    <p class="lead rv d1">Five tokens, one back every 12 seconds — 5 per minute per IP. Each frame is real <code>x/time/rate</code> output.</p>
+
+    <div class="rv d1" id="bViz" style="margin-top:20px">
+      <div class="stg" id="bStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/httpx/ratelimit.go</span></div>
+<pre><span class="k">type</span> <span class="fn">IPLimiter</span> <span class="k">struct</span> {
+    mu  sync.<span class="fn">Mutex</span>
+    ips <span class="k">map</span>[<span class="fn">string</span>]*rate.<span class="fn">Limiter</span>
+    r   rate.<span class="fn">Limit</span>
+    b   <span class="fn">int</span>
+}
+
+<span class="k">func</span> (l *<span class="fn">IPLimiter</span>) <span class="fn">get</span>(ip <span class="fn">string</span>) *rate.<span class="fn">Limiter</span> {
+    l.mu.<span class="fn">Lock</span>()
+    <span class="k">defer</span> l.mu.<span class="fn">Unlock</span>()
+    lim, ok := l.ips[ip]
+    <span class="k">if</span> !ok {
+        lim = rate.<span class="fn">NewLimiter</span>(l.r, l.b)
+        l.ips[ip] = lim
+    }
+    <span class="k">return</span> lim
+}
+
+<span class="k">func</span> (l *<span class="fn">IPLimiter</span>) <span class="fn">Middleware</span>(next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    fn := <span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        ip, _, _ := net.<span class="fn">SplitHostPort</span>(r.RemoteAddr)
+        <span class="k">if</span> !l.<span class="fn">get</span>(ip).<span class="fn">Allow</span>() {
+            w.<span class="fn">Header</span>().<span class="fn">Set</span>(<span class="str">"Retry-After"</span>, <span class="str">"12"</span>)
+            http.<span class="fn">Error</span>(w, <span class="str">"too many requests"</span>, <span class="num">429</span>)
+            <span class="k">return</span>
+        }
+        next.<span class="fn">ServeHTTP</span>(w, r)
+    }
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(fn)
+}
+
+<span class="com">// 5 per minute = one token every 12 s, burst 5</span>
+lim := <span class="fn">NewIPLimiter</span>(time.Minute/<span class="num">5</span>, <span class="num">5</span>)
+mux.<span class="fn">Handle</span>(<span class="str">"POST /login"</span>, lim.<span class="fn">Middleware</span>(login))</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/08 · 7 wrong passwords, then a second IP</span></div>
+<pre><span class="out">attempt 1 from 203.0.113.9 → 401
+attempt 2 from 203.0.113.9 → 401
+attempt 3 from 203.0.113.9 → 401
+attempt 4 from 203.0.113.9 → 401
+attempt 5 from 203.0.113.9 → 401
+attempt 6 from 203.0.113.9 → <span class="em">429</span>
+attempt 7 from 203.0.113.9 → <span class="em">429</span>
+attempt 1 from 198.51.100.4 → 401    <span class="comm"># its own bucket</span></span></pre>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>several API instances? share the count in Redis</span></div>
+<pre><span class="k">func</span> <span class="fn">Allow</span>(ctx context.<span class="fn">Context</span>, rdb *redis.<span class="fn">Client</span>,
+    ip <span class="fn">string</span>, limit <span class="fn">int64</span>, win time.<span class="fn">Duration</span>) (<span class="fn">bool</span>, <span class="fn">error</span>) {
+    key := <span class="str">"rl:login:"</span> + ip
+    n, err := rdb.<span class="fn">Incr</span>(ctx, key).<span class="fn">Result</span>()
+    <span class="k">if</span> err != <span class="k">nil</span> {
+        <span class="k">return</span> <span class="k">false</span>, err
+    }
+    <span class="k">if</span> n == <span class="num">1</span> {
+        rdb.<span class="fn">Expire</span>(ctx, key, win) <span class="com">// first hit opens the window</span>
+    }
+    <span class="k">return</span> n &lt;= limit, <span class="k">nil</span>
+}</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/08b · two instances, one Redis</span></div>
+<pre><span class="out">hit 1 via api-A → allowed=true
+hit 2 via api-B → allowed=true
+hit 3 via api-A → allowed=true
+hit 4 via api-B → allowed=true
+hit 5 via api-A → allowed=true
+hit 6 via api-B → <span class="em">allowed=false</span>
+ttl: 1m0s
+61s later → allowed = <span class="hi">true</span></span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>In-memory</b> limits are per process: 3 instances = 3× the limit. Use <b>Redis</b> once you scale out.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Behind a load balancer <code>RemoteAddr</code> is the proxy — read <code>X-Forwarded-For</code> <b>only</b> from a proxy you trust.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Also limit <b>per account</b> (email): a botnet with 1,000 IPs still hits one user's bucket.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">The <code>ips</code> map grows forever — evict idle entries on a timer in production.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">HANDS-ON · TOPIC 3</span>
+      <h4>5 login attempts per minute per IP</h4>
+      <ul>
+        <li>Wrap only <code>POST /login</code> in the limiter; return <code>429</code> with <code>Retry-After</code>.</li>
+        <li>Prove it: a test sends 7 requests from one IP (5× 401, 2× 429) and 1 from another (401).</li>
+        <li>Stretch: swap in the Redis <code>Allow</code> and run two server processes.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 08 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">Placeholders, always — user input must never become part of the query text.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">Every body: size limit → valid JSON → no unknown fields → <code>Validate()</code>.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">Token bucket: burst of 5, one token back every 12 s, 429 when empty.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Share limits in Redis across instances; limit by IP <b>and</b> by account.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="07-abac-permissions.html"><span class="dir">← Previous</span><b>Fine-Grained Permissions</b></a>
+  <a class="next" href="09-headers-cors-tls.html"><span class="dir">Next session →</span><b>Headers, CORS &amp; TLS</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 08 Request Defense</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+SQLViz.register("gate", function(el){
+  var s=el.querySelectorAll("[data-f]"), t=SQLViz.timers(el);
+  s.forEach(function(x){ x.classList.remove("lit"); });
+  if(SQLViz.reduce){ s.forEach(function(x){ x.classList.add("lit"); }); return; }
+  s.forEach(function(x,i){ t.push(setTimeout(function(){ x.classList.add("lit"); }, 200*i+200)); });
+});
+
+(function(){
+  // log: [t, allowed] — from demos/08 simulated clock
+  var LOG = [[0,1],[0,1],[0,1],[0,1],[0,1],[0,0],[5,0],[12,1],[12,0],[30,1]];
+  mkAlgo("bViz","bStage",[
+    {t:0, tokens:5, n:0, explain:"A new IP gets a <b>full bucket</b>: 5 tokens. Each request spends one."},
+    {t:0, tokens:3, n:2, explain:"Two quick wrong passwords — two tokens gone, both reach the handler (401)."},
+    {t:0, tokens:0, n:5, explain:"Five attempts in the same second. The bucket is <b>empty</b>."},
+    {t:0, tokens:0, n:6, explain:"Attempt 6 finds no token → <span class=\"warn\">429 Too Many Requests</span>. The password is never even checked."},
+    {t:5, tokens:0.4, n:7, explain:"5 s later: refill is continuous, <b>0.4</b> of a token so far. Still not enough → 429."},
+    {t:12, tokens:0, n:8, explain:"At 12 s one whole token is back → the request is <b>allowed</b>, and spends it."},
+    {t:12, tokens:0, n:9, explain:"Immediately again → empty → 429. Steady state: <b>one guess per 12 s</b>."},
+    {t:30, tokens:0.5, n:10, explain:"By 30 s it refilled to 1.5; one is spent, <b>0.5</b> left. <span class=\"ok\">Humans never notice; scripts are throttled to 5/min.</span>"}
+  ], function(stage, fr){
+    var h = '<div class="bk"><div><div class="clock">t = '+fr.t+' s</div><div class="bucket"><div class="drip">+1 token / 12 s</div><div class="pail">';
+    for(var i=0;i<5;i++){
+      var cls = i < Math.floor(fr.tokens) ? "" : (i < fr.tokens ? " part" : " gone");
+      h += '<div class="tk'+cls+'"></div>';
+    }
+    h += '</div></div><div class="cnt">tokens: '+(Math.round(fr.tokens*10)/10)+' / 5</div></div><div class="reqs">';
+    var shown = LOG.slice(0, fr.n);
+    if(!shown.length) h += '<div class="rq"><span>—</span><span>no requests yet</span><span></span></div>';
+    shown.forEach(function(l,i){
+      var ok = l[1]===1, last = i===shown.length-1;
+      h += '<div class="rq '+(ok?"ok":"no")+(last?" new":"")+'"><span>t='+l[0]+'s</span><span>POST /login #'+(i+1)+'</span><span class="st">'+(ok?"allow":"429")+'</span></div>';
+    });
+    h += '</div></div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

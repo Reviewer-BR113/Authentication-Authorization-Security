@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 01 Identity &amp; Cryptography — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:300px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* 1a two doors */
+  .doors{display:grid;grid-template-columns:minmax(0,1fr) 34px minmax(0,1fr) 34px minmax(0,.8fr);align-items:stretch;gap:0;margin-top:22px}
+  @media (max-width:700px){.doors{grid-template-columns:1fr}.doors .dar{transform:rotate(90deg);padding:4px 0}}
+  .door{border:1px solid var(--border-2);border-radius:13px;background:var(--panel);padding:15px;opacity:.35;transform:translateY(6px);transition:all .45s}
+  .door.lit{opacity:1;transform:none;border-color:rgba(251,113,133,.5)}
+  .door.end.lit{border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.06)}
+  .door .dl{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:#FB7185;display:block}
+  .door.end .dl{color:var(--ok)}
+  .door h4{margin:6px 0 4px;font-size:1.02rem}
+  .door .dq{font-size:.86rem;color:#c5d1e0}
+  .door .dx{margin-top:10px;font-family:var(--mono);font-size:.7rem;color:var(--bad)}
+  .dar{display:grid;place-items:center;color:var(--faint);opacity:.35;transition:opacity .45s}
+  .dar.lit{opacity:1}
+
+  /* 1b hash anatomy + cost bars */
+  .anat{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;font-family:var(--mono);font-size:.82rem;margin-top:20px}
+  .anat span{padding:6px 7px;border-radius:7px;border:1px solid var(--border-2);overflow-wrap:anywhere}
+  .anat .a1{color:#c4b5fd;border-color:rgba(167,139,250,.4)} .anat .a2{color:#fdba74;border-color:rgba(251,146,60,.4)}
+  .anat .a3{color:#7ee787;border-color:rgba(126,231,135,.4)} .anat .a4{color:#FDA4AF;border-color:rgba(251,113,133,.4)}
+  .alegend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;font-family:var(--mono);font-size:.64rem;color:var(--faint);margin-top:9px}
+  .alegend b{font-weight:600} .alegend .a1{color:#c4b5fd} .alegend .a2{color:#fdba74} .alegend .a3{color:#7ee787} .alegend .a4{color:#FDA4AF}
+  .costs{display:flex;flex-direction:column;gap:8px;margin-top:22px;border:1px solid var(--border);border-radius:13px;background:var(--panel);padding:16px}
+  .costs .ch{font-family:var(--mono);font-size:.62rem;letter-spacing:.07em;color:var(--faint);margin-bottom:4px}
+  .crow2{display:grid;grid-template-columns:62px minmax(0,1fr) 62px;gap:10px;align-items:center;font-family:var(--mono);font-size:.74rem;color:#cbd5e1}
+  .ctrack{height:14px;background:var(--panel-2);border-radius:7px;overflow:hidden}
+  .cfill{height:100%;width:0;border-radius:7px;background:linear-gradient(90deg,#FB7185,#fda4af);transition:width .9s cubic-bezier(.2,.8,.2,1);min-width:3px}
+  .crow2.pick{color:#FDA4AF} .crow2 .cv{text-align:right}
+
+  /* 1c compare cells */
+  .cmpw{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .crow{display:flex;gap:6px;align-items:center}
+  .clab{width:64px;font-family:var(--mono);font-size:.62rem;color:var(--faint);text-align:right;padding-right:6px}
+  .cc{width:44px;height:44px;border-radius:9px;border:1px solid var(--border-2);display:grid;place-items:center;font-family:var(--mono);font-size:1.05rem;background:#070b12;color:#cbd5e1;transition:all .3s}
+  .cc.eq{border-color:rgba(52,211,153,.6);background:rgba(52,211,153,.12);color:#6ee7b7}
+  .cc.ne{border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.12);color:#fca5a5}
+  .cc.skip{opacity:.28;border-style:dashed}
+  .cc.sec{color:#FDA4AF}
+  .tmeter{width:min(380px,100%);margin-top:6px}
+  .tmeter .tl2{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.64rem;color:var(--faint);margin-bottom:5px}
+  .ttrack{height:12px;background:var(--panel-2);border-radius:6px;overflow:hidden}
+  .tfill{height:100%;background:#FB7185;border-radius:6px;transition:width .45s}
+  .tfill.flat{background:var(--ok)}
+  .known{font-family:var(--mono);font-size:.72rem;color:#fca5a5;min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 01</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 01</span> · 🔑 Identity</div>
+    <h1 class="rv d1">Identity &amp; <span class="grad">Cryptography</span></h1>
+    <p class="lead rv d2">Prove who the user is — without ever storing their password.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>1a</b><span>AuthN vs AuthZ</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>1b</b><span>bcrypt &amp; cost</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>1c</b><span>constant-time compare</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">1a</p>
+    <h2 class="rv">Two questions, two status codes</h2>
+    <p class="lead rv d1">Every protected request passes two separate checks, always in this order.</p>
+
+    <div class="rv d1" data-run="doors">
+      <div class="doors">
+        <div class="door" data-f><span class="dl">AUTHENTICATION</span><h4>Who are you?</h4><div class="dq">password · token · session</div><div class="dx">fails → 401 Unauthorized</div></div>
+        <div class="dar" data-f>→</div>
+        <div class="door" data-f><span class="dl">AUTHORIZATION</span><h4>What may you do?</h4><div class="dq">role · ownership · permission</div><div class="dx">fails → 403 Forbidden</div></div>
+        <div class="dar" data-f>→</div>
+        <div class="door end" data-f><span class="dl">HANDLER</span><h4>Do the work</h4><div class="dq">200 OK</div></div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>AuthN runs first</b> — you cannot check permissions for someone you haven't identified.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>401</b> means "prove who you are again". <b>403</b> means "I know who you are — still no".</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Sessions 01–04 build the first check; sessions 05–07 build the second.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">1b</p>
+    <h2 class="rv">Store a hash that is slow on purpose</h2>
+    <p class="lead rv d1">bcrypt turns a password into a salted, deliberately expensive hash. You store only the hash.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/password.go</span></div>
+<pre><span class="k">import</span> <span class="str">"golang.org/x/crypto/bcrypt"</span>
+
+<span class="k">const</span> cost = <span class="num">12</span> <span class="com">// ~270 ms on this machine</span>
+
+<span class="k">func</span> <span class="fn">HashPassword</span>(pw <span class="fn">string</span>) (<span class="fn">string</span>, <span class="fn">error</span>) {
+    h, err := bcrypt.<span class="fn">GenerateFromPassword</span>(
+        []<span class="fn">byte</span>(pw), cost)
+    <span class="k">return</span> <span class="fn">string</span>(h), err
+}
+
+<span class="k">func</span> <span class="fn">CheckPassword</span>(hash, pw <span class="fn">string</span>) <span class="fn">bool</span> {
+    err := bcrypt.<span class="fn">CompareHashAndPassword</span>(
+        []<span class="fn">byte</span>(hash), []<span class="fn">byte</span>(pw))
+    <span class="k">return</span> err == <span class="k">nil</span>
+}</pre>
+    </div>
+
+    <div class="rv d1">
+      <div class="anat"><span class="a1">$2a$</span><span class="a2">12$</span><span class="a3">EcX1op6oy.w0pO8mONBPr.</span><span class="a4">6ZSuiU7NbxZOJ77Mqqvt/Ef5l12frhy</span></div>
+      <div class="alegend"><span class="a1"><b>■</b> algorithm</span><span class="a2"><b>■</b> cost</span><span class="a3"><b>■</b> random salt (22)</span><span class="a4"><b>■</b> hash (31)</span></div>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/01</span></div>
+<pre><span class="out">hash 1: $2a$12$EcX1op6oy.w0pO8mONBPr.6ZSuiU7NbxZOJ77Mqqvt/Ef5l12frhy
+hash 2: $2a$12$q4/EfxVA3zOi64hBhpAxXeURCRWl3l3b9ZdDIQpBV01ZUv4mcOd7K
+same?  <span class="hi">false</span>
+right password: <span class="hi">&lt;nil&gt;</span>
+wrong password: crypto/bcrypt: hashedPassword is not the hash of the given password
+73-byte password: <span class="em">bcrypt: password length exceeds 72 bytes</span></span></pre>
+    </div>
+
+    <div class="costs rv d1" data-run="costbars">
+      <div class="ch">REAL TIMINGS · one GenerateFromPassword call</div>
+      <div class="crow2"><span>cost 4</span><div class="ctrack"><div class="cfill" data-w="0.1"></div></div><span class="cv">1 ms</span></div>
+      <div class="crow2"><span>cost 8</span><div class="ctrack"><div class="cfill" data-w="1.6"></div></div><span class="cv">17 ms</span></div>
+      <div class="crow2"><span>cost 10</span><div class="ctrack"><div class="cfill" data-w="6.3"></div></div><span class="cv">67 ms</span></div>
+      <div class="crow2 pick"><span>cost 12</span><div class="ctrack"><div class="cfill" data-w="25"></div></div><span class="cv">268 ms</span></div>
+      <div class="crow2"><span>cost 14</span><div class="ctrack"><div class="cfill" data-w="100"></div></div><span class="cv">1.07 s</span></div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Same password, different hash</b> — the salt is random and lives inside the hash.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>+1 cost = 2× the work.</b> Pick the cost that takes ~250 ms on your server.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">The cost is stored in the hash, so you can raise it later and re-hash on the next login.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">bcrypt accepts at most <b>72 bytes</b> — cap password length in validation.</span></div>
+    </div>
+
+    <div class="callout mistake rv d1" style="margin-top:18px"><span class="lbl">Mistake</span><p>Hashing passwords with SHA-256. It is built to be <b>fast</b> — a GPU tries billions per second. For passwords, slow is the feature.</p></div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">1c</p>
+    <h2 class="rv">Compare secrets without leaking time</h2>
+    <p class="lead rv d1">A normal <code>==</code> stops at the first wrong byte. How long it takes tells an attacker how much they got right.</p>
+
+    <div class="rv d1" id="tViz" style="margin-top:20px">
+      <div class="stg" id="tStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/apikey.go</span></div>
+<pre><span class="k">import</span> <span class="str">"crypto/subtle"</span>
+
+<span class="k">func</span> <span class="fn">validKey</span>(got, want <span class="fn">string</span>) <span class="fn">bool</span> {
+    <span class="k">return</span> subtle.<span class="fn">ConstantTimeCompare</span>(
+        []<span class="fn">byte</span>(got), []<span class="fn">byte</span>(want)) == <span class="num">1</span>
+}</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/01b · 256-byte secret, avg of 2M runs</span></div>
+<pre><span class="out">wrong at byte 0    naive  <span class="em">  1ns</span>   constant  <span class="hi">101ns</span>
+wrong at byte 128  naive  <span class="em"> 52ns</span>   constant  <span class="hi">101ns</span>
+wrong at byte 255  naive  <span class="em"> 85ns</span>   constant  <span class="hi">101ns</span></span>
+<span class="comm"># naive time grows with the correct prefix; constant never moves</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">Use <code>subtle.ConstantTimeCompare</code> for anything secret you compare yourself: API keys, reset tokens, signatures.</span></div>
+      <div class="bi ok"><span class="bm">✓</span><span class="bt"><code>bcrypt.CompareHashAndPassword</code> is already constant-time.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Same timing for unknown emails too:</b> if the user doesn't exist, still run bcrypt against a dummy hash — otherwise ~0 ms vs ~270 ms reveals which emails are registered.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Same message for both failures: <code>invalid email or password</code>.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">TASK</span>
+      <h4>Register &amp; login with bcrypt</h4>
+      <ul>
+        <li><code>POST /register</code> — hash with cost 12, store only the hash.</li>
+        <li><code>POST /login</code> — compare; one error message for every failure.</li>
+        <li>Time a login with an unknown email and a known one — make them match.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 01 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">AuthN (who, 401) always runs before AuthZ (what, 403).</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">Store bcrypt hashes, never passwords — salt and cost are inside the hash.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">Tune cost to ~250 ms; each step doubles the attacker's work too.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Compare secrets in constant time and keep failure responses identical.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="overview.html"><span class="dir">← Overview</span><b>Auth &amp; Security</b></a>
+  <a class="next" href="02-jwt-structure.html"><span class="dir">Next session →</span><b>JWT Structure</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 01 Identity &amp; Cryptography</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+SQLViz.register("doors", function(el){
+  var s=el.querySelectorAll("[data-f]"), t=SQLViz.timers(el);
+  s.forEach(function(x){ x.classList.remove("lit"); });
+  if(SQLViz.reduce){ s.forEach(function(x){ x.classList.add("lit"); }); return; }
+  s.forEach(function(x,i){ t.push(setTimeout(function(){ x.classList.add("lit"); }, 260*i+200)); });
+});
+SQLViz.register("costbars", function(el){
+  var b=el.querySelectorAll(".cfill"), t=SQLViz.timers(el);
+  b.forEach(function(x){ x.style.width="0"; });
+  b.forEach(function(x,i){ t.push(setTimeout(function(){ x.style.width=x.getAttribute("data-w")+"%"; }, SQLViz.reduce?0:220*i+200)); });
+});
+
+(function(){
+  var SECRET = "K7Q2";
+  mkAlgo("tViz","tStage",[
+    {mode:"naive", guess:"A000", q:"naive == · guess A000",
+     explain:"The server compares byte by byte. Byte 0 is wrong, so it <b>returns immediately</b> — 1 comparison."},
+    {mode:"naive", guess:"K000", known:"K", q:"naive == · guess K000",
+     explain:"Byte 0 matches, byte 1 fails — <b>2 comparisons</b>, measurably slower. <span class=\"warn\">The attacker now knows the first character is K.</span>"},
+    {mode:"naive", guess:"K700", known:"K7", q:"naive == · guess K700",
+     explain:"Slower again. The attacker recovers the secret <b>one character at a time</b>."},
+    {mode:"naive", guess:"K7Q0", known:"K7Q", q:"naive == · guess K7Q0",
+     explain:"4 × 36 guesses instead of 36⁴. <span class=\"warn\">The timing itself leaked the secret.</span>"},
+    {mode:"ct", guess:"A000", q:"subtle.ConstantTimeCompare · guess A000",
+     explain:"Constant-time compare <b>always checks every byte</b>, even after a mismatch."},
+    {mode:"ct", guess:"K7Q0", q:"subtle.ConstantTimeCompare · guess K7Q0",
+     explain:"<span class=\"ok\">Nearly right, completely wrong — same time.</span> The timing tells the attacker nothing."}
+  ], function(stage, fr){
+    var stop = SECRET.length, i;
+    if(fr.mode==="naive"){ for(i=0;i<SECRET.length;i++){ if(fr.guess[i]!==SECRET[i]){ stop=i+1; break; } } }
+    var sec='', gue='';
+    for(i=0;i<SECRET.length;i++){
+      sec += '<div class="cc sec">'+SECRET[i]+'</div>';
+      var cls = i<stop ? (fr.guess[i]===SECRET[i] ? "eq" : "ne") : "skip";
+      gue += '<div class="cc '+cls+'">'+fr.guess[i]+'</div>';
+    }
+    var w = fr.mode==="naive" ? (stop/SECRET.length*100) : 100;
+    var h = '<div class="vq '+(fr.mode==="ct"?"ok":"bad")+'">'+fr.q+'</div>';
+    h += '<div class="cmpw">'+
+      '<div class="crow"><span class="clab">SECRET</span>'+sec+'</div>'+
+      '<div class="crow"><span class="clab">GUESS</span>'+gue+'</div>'+
+      '<div class="tmeter"><div class="tl2"><span>response time</span><span>'+(fr.mode==="naive"?stop:SECRET.length)+' / 4 compares</span></div>'+
+      '<div class="ttrack"><div class="tfill'+(fr.mode==="ct"?" flat":"")+'" style="width:'+w+'%"></div></div></div>'+
+      '<div class="known">'+(fr.known ? 'attacker knows: '+fr.known+'…' : '')+'</div>'+
+    '</div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

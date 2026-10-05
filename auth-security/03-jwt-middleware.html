@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 03 Issuing &amp; Validating JWTs — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:340px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* pipeline */
+  .pipe{display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1.3fr) 30px minmax(0,1fr);align-items:stretch}
+  @media (max-width:700px){.pipe{grid-template-columns:1fr}.pipe .par{transform:rotate(90deg);padding:6px 0}}
+  .pbox{border:1px solid var(--border-2);border-radius:12px;background:#070b12;padding:12px 13px;transition:all .3s}
+  .pbox .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--faint);display:block;margin-bottom:8px}
+  .pbox.hot{border-color:rgba(251,113,133,.55)} .pbox.ok{border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.05)}
+  .pbox.no{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.05)} .pbox.dim{opacity:.3}
+  .pbox .rq{font-family:var(--mono);font-size:.7rem;color:#cbd5e1;line-height:1.6;overflow-wrap:anywhere}
+  .pbox .rq b{color:#FDA4AF;font-weight:500}
+  .par{display:grid;place-items:center;color:var(--faint);transition:color .3s}
+  .par.on{color:#FB7185}
+  .chk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.68rem;padding:6px 8px;border-radius:7px;border:1px solid var(--border);margin-bottom:6px;color:var(--faint)}
+  .chk .ci{width:16px;text-align:center}
+  .chk.pass{color:#6ee7b7;border-color:rgba(52,211,153,.35)} .chk.fail{color:#fca5a5;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.06)}
+  .chk.skip{opacity:.35}
+  .ctxb{margin-top:8px;font-family:var(--mono);font-size:.66rem;color:#7DD3FC;border:1px dashed rgba(125,211,252,.4);border-radius:7px;padding:6px 8px}
+  .res{font-family:var(--mono);font-size:.8rem;margin-top:4px}
+  .res.ok{color:var(--ok)} .res.no{color:var(--bad)}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px}
+  .case{font-family:var(--mono);font-size:.62rem;padding:3px 9px;border-radius:999px;border:1px solid var(--border-2);color:var(--faint)}
+  .case.on{color:var(--text);border-color:#FB7185;background:rgba(251,113,133,.1)}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 03</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 03</span> · 🛂 Middleware</div>
+    <h1 class="rv d1">Issuing &amp; Validating <span class="grad">JWTs</span></h1>
+    <p class="lead rv d2">Sign a token at login; check it once, in one middleware, for every protected route.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>3a</b><span>issue an access token</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>3b</b><span>auth middleware</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>3c</b><span>claims in context</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">3a</p>
+    <h2 class="rv">A typed claims struct, signed at login</h2>
+    <p class="lead rv d1">Embed <code>jwt.RegisteredClaims</code> for the standard fields and add only what you need.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/token.go</span></div>
+<pre><span class="k">type</span> <span class="fn">Claims</span> <span class="k">struct</span> {
+    Role <span class="fn">string</span> <span class="str">`json:"role"`</span>
+    jwt.<span class="fn">RegisteredClaims</span>  <span class="com">// sub, iat, exp, jti…</span>
+}
+
+<span class="k">func</span> <span class="fn">IssueAccess</span>(userID, role <span class="fn">string</span>,
+    ttl time.<span class="fn">Duration</span>) (<span class="fn">string</span>, <span class="fn">error</span>) {
+    now := time.<span class="fn">Now</span>()
+    c := <span class="fn">Claims</span>{
+        Role: role,
+        RegisteredClaims: jwt.<span class="fn">RegisteredClaims</span>{
+            Subject:   userID,
+            IssuedAt:  jwt.<span class="fn">NewNumericDate</span>(now),
+            ExpiresAt: jwt.<span class="fn">NewNumericDate</span>(now.<span class="fn">Add</span>(ttl)),
+        },
+    }
+    t := jwt.<span class="fn">NewWithClaims</span>(jwt.SigningMethodHS256, c)
+    <span class="k">return</span> t.<span class="fn">SignedString</span>(secret)
+}</pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Typed struct over <code>MapClaims</code></b> — no <code>claims["sub"].(string)</code> assertions later.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Called once, right after <code>CheckPassword</code> succeeds — typically with <code>15*time.Minute</code>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><code>secret</code> is loaded from the environment at startup (session 10).</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">3b</p>
+    <h2 class="rv">One middleware guards every route</h2>
+    <p class="lead rv d1">Five real requests hit <code>GET /me</code>. Watch which check stops each one.</p>
+
+    <div class="rv d1" id="mViz" style="margin-top:20px">
+      <div class="stg" id="mStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/middleware.go</span></div>
+<pre><span class="k">func</span> <span class="fn">RequireAuth</span>(next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    fn := <span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        h := r.Header.<span class="fn">Get</span>(<span class="str">"Authorization"</span>)
+        raw, ok := strings.<span class="fn">CutPrefix</span>(h, <span class="str">"Bearer "</span>)
+        <span class="k">if</span> !ok {
+            http.<span class="fn">Error</span>(w, <span class="str">"missing token"</span>, <span class="num">401</span>)
+            <span class="k">return</span>
+        }
+        c := &amp;<span class="fn">Claims</span>{}
+        _, err := jwt.<span class="fn">ParseWithClaims</span>(raw, c, keyFn,
+            jwt.<span class="fn">WithValidMethods</span>([]<span class="fn">string</span>{<span class="str">"HS256"</span>}))
+        <span class="k">if</span> err != <span class="k">nil</span> {
+            http.<span class="fn">Error</span>(w, <span class="str">"invalid token"</span>, <span class="num">401</span>)
+            <span class="k">return</span>
+        }
+        ctx := context.<span class="fn">WithValue</span>(r.<span class="fn">Context</span>(), ctxKey{}, c)
+        next.<span class="fn">ServeHTTP</span>(w, r.<span class="fn">WithContext</span>(ctx))
+    }
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(fn)
+}
+
+<span class="com">// wiring</span>
+mux.<span class="fn">Handle</span>(<span class="str">"GET /me"</span>, <span class="fn">RequireAuth</span>(http.<span class="fn">HandlerFunc</span>(me)))</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/03 · httptest requests</span></div>
+<pre><span class="out">no header     → <span class="em">401 missing token</span>
+garbage       → <span class="em">401 invalid token</span>
+expired       → <span class="em">401 invalid token</span>
+alg:none      → <span class="em">401 invalid token</span>
+valid         → <span class="hi">200 hello user 42 (user)</span>
+  reason: token has invalid claims: token is expired
+  reason: token signature is invalid: signing method none is invalid</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b><code>WithValidMethods</code></b> pins the algorithm — a token claiming <code>alg: none</code> is refused.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Clients get a <b>generic</b> <code>invalid token</code>; log the real reason server-side.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Wrap only protected routes — <code>/login</code> and <code>/register</code> stay public.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">3c</p>
+    <h2 class="rv">Handlers read claims, never tokens</h2>
+    <p class="lead rv d1">The middleware verified once; handlers just ask the context who is calling.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/context.go</span></div>
+<pre><span class="k">type</span> <span class="fn">ctxKey</span> <span class="k">struct</span>{} <span class="com">// unexported: no collisions</span>
+
+<span class="k">func</span> <span class="fn">ClaimsFrom</span>(ctx context.<span class="fn">Context</span>) *<span class="fn">Claims</span> {
+    c, _ := ctx.<span class="fn">Value</span>(ctxKey{}).(*<span class="fn">Claims</span>)
+    <span class="k">return</span> c
+}
+
+<span class="k">func</span> <span class="fn">me</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+    c := <span class="fn">ClaimsFrom</span>(r.<span class="fn">Context</span>())
+    fmt.<span class="fn">Fprintf</span>(w, <span class="str">"hello user %s (%s)"</span>, c.Subject, c.Role)
+}</pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Unexported key type</b> — no other package can overwrite or read your value by accident.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">One helper, <code>ClaimsFrom</code>, is the only way in — easy to fake in tests.</span></div>
+      <div class="bi ok"><span class="bm">✓</span><span class="bt">Sessions 05–06 read <code>c.Role</code> and <code>c.Subject</code> from here to authorize.</span></div>
+    </div>
+
+    <div class="callout mistake rv d1" style="margin-top:18px"><span class="lbl">Mistake</span><p>Trusting a user id from the request body or query string. The <b>only</b> trustworthy identity is <code>c.Subject</code> from a verified token.</p></div>
+
+    <div class="task rv d1">
+      <span class="tl">TASK</span>
+      <h4>Protect <code>GET /me</code></h4>
+      <ul>
+        <li><code>POST /login</code> returns <code>{"access_token": "…"}</code> on success.</li>
+        <li>Wrap <code>GET /me</code> in <code>RequireAuth</code>; return the user from <code>c.Subject</code>.</li>
+        <li>Write <code>httptest</code> cases for all five requests above.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 03 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">Embed <code>jwt.RegisteredClaims</code> in a typed struct; sign with HS256 at login.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">One middleware: read Bearer header → parse &amp; verify → attach claims.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">Pin the algorithm with <code>WithValidMethods</code>; answer every failure with 401.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Handlers call <code>ClaimsFrom(ctx)</code> — identity never comes from user input.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="02-jwt-structure.html"><span class="dir">← Previous</span><b>JWT Structure</b></a>
+  <a class="next" href="04-token-lifecycle.html"><span class="dir">Next session →</span><b>Token Lifecycle</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 03 Issuing &amp; Validating JWTs</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var CASES = ["no header","garbage","expired","alg:none","valid"];
+  var CHECKS = ["Bearer header present","signature + alg valid","exp in the future"];
+  // res: index of failing check, or -1 for pass
+  mkAlgo("mViz","mStage",[
+    {c:0, hdr:'<i>(no Authorization header)</i>', fail:0, why:"missing token",
+     explain:"No <code>Bearer </code> prefix → <code>CutPrefix</code> returns <b>ok=false</b>. Stopped before any crypto runs."},
+    {c:1, hdr:'Bearer <b>abc.def.ghi</b>', fail:1, why:"invalid token",
+     explain:"Three segments, but not valid base64 JSON and no valid signature. <b>Parse fails.</b>"},
+    {c:2, hdr:'Bearer <b>eyJhbGci…</b> <i>(exp 1 min ago)</i>', fail:2, why:"invalid token",
+     explain:"Signature is genuine — but <code>exp</code> has passed. The library rejects it: <span class=\"warn\">token is expired</span>."},
+    {c:3, hdr:'Bearer <b>eyJhbGciOiJub25lIi…</b> <i>(alg:none, no sig)</i>', fail:1, why:"invalid token",
+     explain:"A classic attack: claim <code>alg: none</code> and drop the signature. <code>WithValidMethods</code> refuses: <span class=\"warn\">signing method none is invalid</span>."},
+    {c:4, hdr:'Bearer <b>eyJhbGci…</b> <i>(fresh)</i>', fail:-1,
+     explain:"All three checks pass. Claims go into the <b>request context</b> and the handler runs."},
+    {c:4, hdr:'Bearer <b>eyJhbGci…</b> <i>(fresh)</i>', fail:-1, handler:true,
+     explain:"<span class=\"ok\">The handler never saw the token</span> — it just read <code>ClaimsFrom(ctx)</code>: sub=42, role=user."}
+  ], function(stage, fr){
+    var h = '<div class="cases">'+CASES.map(function(n,i){ return '<span class="case'+(i===fr.c?" on":"")+'">'+n+'</span>'; }).join("")+'</div>';
+    var chk = CHECKS.map(function(t,i){
+      var cls = fr.fail===-1 || i<fr.fail ? "pass" : (i===fr.fail ? "fail" : "skip");
+      var ic = cls==="pass" ? "✓" : (cls==="fail" ? "✗" : "·");
+      return '<div class="chk '+cls+'"><span class="ci">'+ic+'</span>'+t+'</div>';
+    }).join("");
+    var passed = fr.fail===-1;
+    h += '<div class="pipe">'+
+      '<div class="pbox hot"><span class="pl">REQUEST · GET /me</span><div class="rq">Authorization:<br>'+fr.hdr+'</div></div>'+
+      '<div class="par on">→</div>'+
+      '<div class="pbox '+(passed?"ok":"no")+'"><span class="pl">RequireAuth</span>'+chk+
+        (passed ? '<div class="ctxb">ctx ← Claims{sub:"42", role:"user"}</div>' : '<div class="res no">401 '+fr.why+'</div>')+'</div>'+
+      '<div class="par'+(passed?" on":"")+'">→</div>'+
+      '<div class="pbox '+(passed?(fr.handler?"ok":"hot"):"dim")+'"><span class="pl">HANDLER · me</span>'+
+        (passed ? '<div class="rq">c := ClaimsFrom(ctx)</div>'+(fr.handler?'<div class="res ok">200 hello user 42 (user)</div>':'') : '<div class="rq">never runs</div>')+'</div>'+
+    '</div>';
+    h += '<div class="vn '+(passed?"green":"red")+'">'+(passed?"200 OK":"401 Unauthorized · handler skipped")+'</div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

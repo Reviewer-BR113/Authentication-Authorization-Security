@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 02 JWT Structure — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:360px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* token strip */
+  .tok{font-family:var(--mono);font-size:.78rem;line-height:1.7;word-break:break-all;background:#070b12;border:1px solid var(--border-2);border-radius:10px;padding:12px 14px;color:#cbd5e1}
+  .tok .dot{color:var(--text);font-weight:700}
+  .tok.split3 .p1{color:#c4b5fd} .tok.split3 .p2{color:#FDA4AF} .tok.split3 .p3{color:#7DD3FC}
+  .tok .ed{background:rgba(251,191,36,.18);border-radius:3px;color:#fcd34d!important}
+  .parts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+  @media (max-width:700px){.parts{grid-template-columns:1fr}}
+  .part{border:1px solid var(--border-2);border-radius:11px;background:#070b12;padding:11px 12px;opacity:.3;transition:all .35s}
+  .part.on{opacity:1}
+  .part.h.on{border-color:rgba(167,139,250,.5)} .part.p.on{border-color:rgba(251,113,133,.5)} .part.s.on{border-color:rgba(125,211,252,.5)}
+  .part.bad{border-color:rgba(248,113,113,.7)!important;background:rgba(248,113,113,.07)}
+  .part.good{border-color:rgba(52,211,153,.6)!important}
+  .part .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;display:block;margin-bottom:7px}
+  .part.h .pl{color:#c4b5fd} .part.p .pl{color:#FDA4AF} .part.s .pl{color:#7DD3FC}
+  .part pre{margin:0;font-family:var(--mono);font-size:.7rem;line-height:1.6;color:#cbd5e1;white-space:pre-wrap;overflow-wrap:anywhere}
+  .part pre .ed{background:rgba(251,191,36,.18);color:#fcd34d;border-radius:3px}
+  .part pre .c{color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 02</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 02</span> · 🎫 Stateless auth</div>
+    <h1 class="rv d1">JWT <span class="grad">Structure</span></h1>
+    <p class="lead rv d2">A signed note the server can trust without looking anything up.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>2a</b><span>three parts, one signature</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>2b</b><span>standard claims</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">2a</p>
+    <h2 class="rv">Header · Payload · Signature</h2>
+    <p class="lead rv d1">Take a real token apart, then try to forge one. Walk it with <b>Next</b>.</p>
+
+    <div class="rv d1" id="jViz" style="margin-top:20px">
+      <div class="stg" id="jStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Base64 is encoding, not encryption.</b> Anyone holding the token can read the payload.</span></div>
+      <div class="bi no"><span class="bm">✗</span><span class="bt">Never put passwords, emails or other private data in the payload.</span></div>
+      <div class="bi ok"><span class="bm">✓</span><span class="bt">The signature makes it <b>tamper-proof</b> — change one character and verification fails.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Stateless:</b> the server checks the signature with its secret — no database lookup per request.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">2b</p>
+    <h2 class="rv">The claims every access token needs</h2>
+    <p class="lead rv d1">Registered claim names are short on purpose — the token travels with every request.</p>
+
+    <div class="rv d1" style="margin-top:20px" data-run="compare">
+      <div class="cmptable">
+        <div class="cmphead"><div>Claim</div><div class="h-v">Meaning</div><div class="h-mv">Example</div></div>
+        <div class="cmprow" data-cr><div class="attr">sub</div><div>who the token is about</div><div class="good">"42" — the user id</div></div>
+        <div class="cmprow" data-cr><div class="attr">iat</div><div>issued at (unix seconds)</div><div class="good">1790000000</div></div>
+        <div class="cmprow" data-cr><div class="attr">exp</div><div>expires at (unix seconds)</div><div class="good">iat + 15 min</div></div>
+        <div class="cmprow" data-cr><div class="attr">jti</div><div>unique token id</div><div class="good">for revocation (session 04)</div></div>
+        <div class="cmprow" data-cr><div class="attr">role</div><div>custom claim</div><div class="warn">"user" — for RBAC (session 05)</div></div>
+      </div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>demos/02/main.go</span></div>
+<pre><span class="k">import</span> <span class="str">"github.com/golang-jwt/jwt/v5"</span>
+
+claims := jwt.<span class="fn">MapClaims</span>{
+    <span class="str">"sub"</span>:  <span class="str">"42"</span>,
+    <span class="str">"role"</span>: <span class="str">"user"</span>,
+    <span class="str">"iat"</span>:  now.<span class="fn">Unix</span>(),
+    <span class="str">"exp"</span>:  now.<span class="fn">Add</span>(<span class="num">15</span> * time.Minute).<span class="fn">Unix</span>(),
+}
+tok := jwt.<span class="fn">NewWithClaims</span>(jwt.SigningMethodHS256, claims)
+s, err := tok.<span class="fn">SignedString</span>(secret)</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/02</span></div>
+<pre><span class="out">header  {"alg":"HS256","typ":"JWT"}
+payload {"exp":1790000900,"iat":1790000000,"role":"user","sub":"42"}
+forged :   <span class="em">token signature is invalid: signature is invalid</span>
+genuine:   <span class="hi">&lt;nil&gt;</span>
+16m later: <span class="em">token has invalid claims: token is expired</span></span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><code>exp</code> is checked by the library automatically — an expired token fails <code>Parse</code>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Keep access tokens <b>short-lived</b> (5–15 min): a stolen token is only useful until <code>exp</code>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">The secret comes from config, is ≥ 32 random bytes, and never appears in code.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">TASK</span>
+      <h4>Break your own token</h4>
+      <ul>
+        <li>Sign a token, paste it into any JWT decoder and read the payload.</li>
+        <li>Change one letter of the payload and parse it — note the error.</li>
+        <li>Sign with a 1-minute <code>exp</code>, wait, parse again.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 02 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">A JWT is <code>base64(header).base64(payload).signature</code>.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">Readable by anyone — secret from no one. Keep the payload boring.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">The HMAC signature over header + payload is what makes it trustworthy.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt"><code>sub</code>, <code>iat</code>, <code>exp</code> on every access token; keep <code>exp</code> short.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="01-identity-cryptography.html"><span class="dir">← Previous</span><b>Identity &amp; Cryptography</b></a>
+  <a class="next" href="03-jwt-middleware.html"><span class="dir">Next session →</span><b>Issuing &amp; Validating JWTs</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 02 JWT Structure</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var H = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+  var P = "eyJleHAiOjE3OTAwMDA5MDAsImlhdCI6MTc5MDAwMDAwMCwicm9sZSI6InVzZXIiLCJzdWIiOiI0MiJ9";
+  var PX = "eyJleHAiOjE3OTAwMDA5MDAsImlhdCI6MTc5MDAwMDAwMCwicm9sZSI6ImFkbWluIiwic3ViIjoiNDIifQ";
+  var SG = "vREhejQWj9x3rTAxNJMTySNM8ttI3cQ8NVOb4Q98erA";
+  var HDR = '{\n  "alg": "HS256",\n  "typ": "JWT"\n}';
+  var PAY = '{\n  "exp": 1790000900,\n  "iat": 1790000000,\n  "role": "user",\n  "sub": "42"\n}';
+  var PAYX = '{\n  "exp": 1790000900,\n  "iat": 1790000000,\n  "role": <span class="ed">"admin"</span>,\n  "sub": "42"\n}';
+  var SIG = 'HMACSHA256(\n  header + "." + payload,\n  secret\n)\n<span class="c">= '+SG+'</span>';
+  var SIGX = 'recompute over the NEW payload:\n<span class="c">≠ '+SG+'</span>';
+
+  mkAlgo("jViz","jStage",[
+    {q:"step 1 · what the client sends", split:false, show:[],
+     explain:"<code>Authorization: Bearer eyJhbGci…</code> — one long string. It looks encrypted. <b>It isn't.</b>"},
+    {q:"step 2 · split on the two dots", split:true, show:[],
+     explain:"Three base64url segments: <b>header</b>, <b>payload</b>, <b>signature</b>."},
+    {q:"step 3 · decode the header", split:true, show:["h"],
+     explain:"Just base64-decode it: the algorithm (<code>HS256</code>) and the type."},
+    {q:"step 4 · decode the payload", split:true, show:["h","p"],
+     explain:"<span class=\"warn\">Anyone can read this</span> — no key needed. These are the <b>claims</b>."},
+    {q:"step 5 · the signature", split:true, show:["h","p","s"],
+     explain:"HMAC-SHA256 of <code>header.payload</code> using a secret <b>only the server knows</b>."},
+    {q:"step 6 · attacker edits role → admin", qk:"bad", split:true, forged:true, show:["h","p","s"],
+     explain:"Decode, change <code>\"user\"</code> to <code>\"admin\"</code>, re-encode. The payload segment changes; the old signature is kept."},
+    {q:"step 7 · server recomputes the signature", qk:"bad", split:true, forged:true, verify:true, show:["h","p","s"],
+     n:"401 · token signature is invalid", nk:"red",
+     explain:"Without the secret the attacker cannot produce a matching signature. <span class=\"ok\">Verification fails — the forgery is rejected.</span>"},
+    {q:"step 8 · the genuine token", qk:"ok", split:true, show:["h","p","s"], good:true,
+     n:"200 · claims trusted: sub=42 role=user", nk:"green",
+     explain:"Signature matches → the server <b>trusts every claim</b> without touching the database."}
+  ], function(stage, fr){
+    var p = fr.forged ? '<span class="ed">'+PX+'</span>' : P;
+    var tok = fr.split
+      ? '<span class="p1">'+H+'</span><span class="dot">.</span><span class="p2">'+p+'</span><span class="dot">.</span><span class="p3">'+SG+'</span>'
+      : H+'.'+P+'.'+SG;
+    var on = function(k){ return fr.show.indexOf(k)>=0 ? " on" : ""; };
+    var h = '<div class="vq '+(fr.qk||"")+'">'+fr.q+'</div>';
+    h += '<div class="tok'+(fr.split?" split3":"")+'">'+tok+'</div>';
+    h += '<div class="parts">'+
+      '<div class="part h'+on("h")+'"><span class="pl">HEADER</span><pre>'+(on("h")?HDR:"…")+'</pre></div>'+
+      '<div class="part p'+on("p")+(fr.forged?" bad":"")+(fr.good?" good":"")+'"><span class="pl">PAYLOAD</span><pre>'+(on("p")?(fr.forged?PAYX:PAY):"…")+'</pre></div>'+
+      '<div class="part s'+on("s")+(fr.verify?" bad":"")+(fr.good?" good":"")+'"><span class="pl">SIGNATURE</span><pre>'+(on("s")?(fr.verify?SIGX:SIG):"…")+'</pre></div>'+
+    '</div>';
+    h += fr.n ? '<div class="vn '+(fr.nk||"")+'">'+fr.n+'</div>' : '';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

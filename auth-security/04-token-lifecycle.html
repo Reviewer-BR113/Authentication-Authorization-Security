@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 04 Token Lifecycle — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:380px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* 4a lifetimes */
+  .life{border:1px solid var(--border);border-radius:13px;background:var(--panel);padding:16px;margin-top:20px}
+  .life .lh{font-family:var(--mono);font-size:.62rem;letter-spacing:.07em;color:var(--faint);margin-bottom:10px}
+  .lrow{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:.7rem;color:#cbd5e1}
+  .ltrack{display:flex;gap:3px;height:18px}
+  .lseg{flex:1;border-radius:4px;background:rgba(251,113,133,.55);opacity:0;transform:scaleY(.3);transition:all .35s}
+  .lseg.on{opacity:1;transform:none}
+  .lbig{flex:1;border-radius:5px;background:linear-gradient(90deg,rgba(125,211,252,.55),rgba(125,211,252,.25));opacity:0;transition:opacity .6s}
+  .lbig.on{opacity:1}
+  .lscale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.6rem;color:var(--faint);margin-left:102px}
+
+  /* 4c timeline + redis */
+  .lc{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+  @media (max-width:700px){.lc{grid-template-columns:1fr}}
+  .actors{display:flex;flex-direction:column;gap:8px}
+  .ev{border:1px solid var(--border-2);border-radius:10px;background:#070b12;padding:9px 11px;font-family:var(--mono);font-size:.68rem;color:#cbd5e1;line-height:1.55;opacity:.3;transition:all .3s}
+  .ev.on{opacity:1;border-color:rgba(251,113,133,.5)}
+  .ev.ok{opacity:1;border-color:rgba(52,211,153,.5)} .ev.no{opacity:1;border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.06)}
+  .ev .who{color:var(--faint);font-size:.58rem;letter-spacing:.07em;display:block}
+  .ev .t{color:#FDA4AF}
+  .redis{border:1px solid rgba(248,113,113,.3);border-radius:11px;background:#070b12;padding:11px 12px}
+  .redis .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:#fca5a5;display:block;margin-bottom:8px}
+  .rk{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:.66rem;padding:5px 7px;border-radius:6px;margin-bottom:4px;border:1px solid var(--border);color:#cbd5e1}
+  .rk .kv{color:var(--faint);white-space:nowrap}
+  .rk.new{border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.07)}
+  .rk.gone{text-decoration:line-through;opacity:.4}
+  .rk.used{border-color:rgba(251,191,36,.45);color:#fcd34d}
+  .rk.deny{border-color:rgba(248,113,113,.5);color:#fca5a5}
+  .rempty{font-family:var(--mono);font-size:.64rem;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 04</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 04</span> · ♻️ Lifecycle</div>
+    <h1 class="rv d1">Token <span class="grad">Lifecycle</span></h1>
+    <p class="lead rv d2">Short-lived access, long-lived refresh — and a way to take both back.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>4a</b><span>access vs refresh</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>4b</b><span>cookie vs Bearer</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>4c</b><span>rotation &amp; revocation</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">4a</p>
+    <h2 class="rv">Two tokens, two jobs</h2>
+    <p class="lead rv d1">The access token is used constantly and dies fast. The refresh token is used rarely and lives for days.</p>
+
+    <div class="life rv d1" data-run="life">
+      <div class="lh">ONE 7-DAY SESSION</div>
+      <div class="lrow"><span>access · 15m</span><div class="ltrack" id="aTrack"></div></div>
+      <div class="lrow"><span>refresh · 7d</span><div class="ltrack"><div class="lbig"></div></div></div>
+      <div class="lscale"><span>login</span><span>day 3</span><span>day 7 → log in again</span></div>
+    </div>
+
+    <div class="rv d1" style="margin-top:20px" data-run="compare">
+      <div class="cmptable">
+        <div class="cmphead"><div></div><div class="h-v">Access token</div><div class="h-mv">Refresh token</div></div>
+        <div class="cmprow" data-cr><div class="attr">format</div><div>signed JWT</div><div>random 32 bytes (opaque)</div></div>
+        <div class="cmprow" data-cr><div class="attr">lifetime</div><div>5–15 minutes</div><div>7–30 days</div></div>
+        <div class="cmprow" data-cr><div class="attr">sent to</div><div>every API call</div><div class="good">only <code>/auth/refresh</code></div></div>
+        <div class="cmprow" data-cr><div class="attr">checked by</div><div>signature (no DB)</div><div>lookup in Redis</div></div>
+        <div class="cmprow" data-cr><div class="attr">revocable</div><div class="warn">not by itself</div><div class="good">delete the key</div></div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">A stolen <b>access</b> token works for minutes, not days.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">The <b>refresh</b> token is stored server-side, so it can be revoked instantly.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">4b</p>
+    <h2 class="rv">Where the browser keeps them</h2>
+    <p class="lead rv d1">Access token in memory, sent as a Bearer header. Refresh token in a cookie JavaScript cannot touch.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/cookie.go</span></div>
+<pre>http.<span class="fn">SetCookie</span>(w, &amp;http.<span class="fn">Cookie</span>{
+    Name:     <span class="str">"refresh_token"</span>,
+    Value:    refresh,
+    Path:     <span class="str">"/auth/refresh"</span>, <span class="com">// sent nowhere else</span>
+    MaxAge:   <span class="fn">int</span>(refreshTTL.<span class="fn">Seconds</span>()),
+    HttpOnly: <span class="k">true</span>,  <span class="com">// invisible to JavaScript</span>
+    Secure:   <span class="k">true</span>,  <span class="com">// HTTPS only</span>
+    SameSite: http.SameSiteStrictMode, <span class="com">// no cross-site</span>
+})</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/04 · the response header</span></div>
+<pre><span class="out">Set-Cookie: refresh_token=64d16837914bb63a; Path=/auth/refresh; Max-Age=604800; <span class="hi">HttpOnly; Secure; SameSite=Strict</span></span></pre>
+    </div>
+
+    <div class="rv d1" style="margin-top:20px" data-run="compare">
+      <div class="cmptable">
+        <div class="cmphead"><div>Threat</div><div class="h-v">localStorage + Bearer</div><div class="h-mv">HttpOnly cookie</div></div>
+        <div class="cmprow" data-cr><div class="attr">XSS reads it</div><div class="bad">yes — any script can</div><div class="good">no</div></div>
+        <div class="cmprow" data-cr><div class="attr">CSRF sends it</div><div class="good">no — must be added by code</div><div class="warn">blocked by SameSite</div></div>
+        <div class="cmprow" data-cr><div class="attr">works for mobile</div><div class="good">yes</div><div class="warn">awkward</div></div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi ok"><span class="bm">✓</span><span class="bt"><b>Web app:</b> refresh in HttpOnly cookie, access in a JS variable (lost on reload → just refresh).</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Mobile / API clients:</b> both in the Authorization header, stored in the OS keychain.</span></div>
+      <div class="bi no"><span class="bm">✗</span><span class="bt">Never keep a refresh token in <code>localStorage</code>.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">4c</p>
+    <h2 class="rv">Rotation, reuse detection and the denylist</h2>
+    <p class="lead rv d1">Every refresh swaps the old token for a new one. If an old one ever comes back, someone copied it.</p>
+
+    <div class="rv d1" id="rViz" style="margin-top:20px">
+      <div class="stg" id="rStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/auth/refresh_store.go</span></div>
+<pre><span class="k">func</span> (s <span class="fn">Store</span>) <span class="fn">Rotate</span>(ctx context.<span class="fn">Context</span>,
+    old <span class="fn">string</span>) (<span class="fn">string</span>, <span class="fn">error</span>) {
+    v, err := s.rdb.<span class="fn">GetDel</span>(ctx, <span class="str">"rt:"</span>+old).<span class="fn">Result</span>()
+    <span class="k">if</span> err == redis.Nil { <span class="com">// not live: reused or bogus?</span>
+        fam, _ := s.rdb.<span class="fn">Get</span>(ctx, <span class="str">"used:"</span>+old).<span class="fn">Result</span>()
+        <span class="k">if</span> fam != <span class="str">""</span> {
+            s.<span class="fn">revokeFamily</span>(ctx, fam)
+            <span class="k">return</span> <span class="str">""</span>, ErrReuse
+        }
+        <span class="k">return</span> <span class="str">""</span>, ErrInvalid
+    }
+    <span class="k">if</span> err != <span class="k">nil</span> {
+        <span class="k">return</span> <span class="str">""</span>, err <span class="com">// Redis down: fail closed</span>
+    }
+    user, fam, _ := strings.<span class="fn">Cut</span>(v, <span class="str">"|"</span>)
+    s.rdb.<span class="fn">Set</span>(ctx, <span class="str">"used:"</span>+old, fam, refreshTTL)
+    <span class="k">return</span> s.<span class="fn">Issue</span>(ctx, user, fam), <span class="k">nil</span>
+}
+
+<span class="com">// logout: deny this access token until it expires</span>
+s.rdb.<span class="fn">Set</span>(ctx, <span class="str">"deny:"</span>+claims.ID, <span class="num">1</span>, time.<span class="fn">Until</span>(exp))</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/04 · real Redis protocol (miniredis)</span></div>
+<pre><span class="out">login     → refresh 64d16837…
+refresh   → refresh 9848b325… &lt;nil&gt;
+replay r1 → <span class="em">refresh token reused: family revoked</span>
+use r2    → <span class="em">refresh token invalid</span>
+jti-7f3a denied: <span class="hi">true</span>  ttl: 9m0s
+10m later denied: false</span>
+<span class="comm"># the denylist key expires by itself once the token would have</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b><code>GETDEL</code></b> is atomic — two parallel refreshes cannot both win.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Reuse = theft.</b> Revoke the whole family: attacker and user are both logged out.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Denylist TTL = time left on the token</b>, so Redis never grows forever.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">If Redis errors, <b>fail closed</b> — refuse, never guess.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">HANDS-ON · TOPIC 1</span>
+      <h4>Stateless auth pipeline with dual tokens</h4>
+      <ul>
+        <li><code>POST /auth/login</code> — bcrypt check → 15-min access JWT in the body + 7-day refresh in an HttpOnly cookie.</li>
+        <li><code>POST /auth/refresh</code> — rotate the cookie, return a new access token; reuse → 401 and revoke the family.</li>
+        <li><code>POST /auth/logout</code> — delete the refresh key, deny the access token's <code>jti</code>.</li>
+        <li><code>RequireAuth</code> also rejects denied <code>jti</code>s.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 04 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">Access = short JWT, checked by signature. Refresh = long opaque token, checked in Redis.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">Refresh lives in an <code>HttpOnly; Secure; SameSite=Strict</code> cookie scoped to one path.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">Rotate on every refresh; a reused token revokes the whole family.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Logout denies the access <code>jti</code> for exactly its remaining lifetime.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="03-jwt-middleware.html"><span class="dir">← Previous</span><b>Issuing &amp; Validating JWTs</b></a>
+  <a class="next" href="05-rbac.html"><span class="dir">Next session →</span><b>Role-Based Access Control</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 04 Token Lifecycle</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var tr = document.getElementById("aTrack");
+  for(var i=0;i<28;i++){ var d=document.createElement("div"); d.className="lseg"; tr.appendChild(d); }
+})();
+SQLViz.register("life", function(el){
+  var segs=el.querySelectorAll(".lseg"), big=el.querySelector(".lbig"), t=SQLViz.timers(el);
+  segs.forEach(function(x){ x.classList.remove("on"); }); big.classList.remove("on");
+  if(SQLViz.reduce){ segs.forEach(function(x){ x.classList.add("on"); }); big.classList.add("on"); return; }
+  t.push(setTimeout(function(){ big.classList.add("on"); }, 200));
+  segs.forEach(function(x,i){ t.push(setTimeout(function(){ x.classList.add("on"); }, 90*i+500)); });
+});
+
+(function(){
+  // events: [who, text, state]  state: "" | on | ok | no
+  var EV = [
+    ["USER", 'POST /auth/login → access <span class="t">A1</span> + refresh <span class="t">R1</span>'],
+    ["USER", 'GET /me with <span class="t">A1</span> · 15 min later: expired'],
+    ["USER", 'POST /auth/refresh with <span class="t">R1</span> → <span class="t">A2</span> + <span class="t">R2</span>'],
+    ["ATTACKER", 'replays a stolen copy of <span class="t">R1</span>'],
+    ["USER", 'POST /auth/refresh with <span class="t">R2</span>'],
+    ["USER", 'logs in again · on logout, <span class="t">A3</span>\'s jti is denied']
+  ];
+  function evs(states){
+    return EV.map(function(e,i){ var s=states[i]||""; return '<div class="ev '+s+'"><span class="who">'+e[0]+'</span>'+e[1]+'</div>'; }).join("");
+  }
+  function redis(keys){
+    if(!keys.length) return '<div class="rempty">(empty)</div>';
+    return keys.map(function(k){ return '<div class="rk '+(k[2]||"")+'"><span>'+k[0]+'</span><span class="kv">'+k[1]+'</span></div>'; }).join("");
+  }
+  mkAlgo("rViz","rStage",[
+    {q:"step 1 · login", st:["on"], keys:[["rt:R1","42|famA","new"],["fam:famA","{R1}","new"]],
+     explain:"Login issues both tokens. Only the <b>refresh</b> token is stored — keyed by value, tagged with a <b>family</b>."},
+    {q:"step 2 · access token expires", st:["ok","on"], keys:[["rt:R1","42|famA"],["fam:famA","{R1}"]],
+     explain:"After 15 minutes <code>A1</code> fails with <b>token is expired</b>. Nothing in Redis changes — access tokens are stateless."},
+    {q:"step 3 · refresh → rotate", qk:"ok", st:["ok","ok","ok"], keys:[["rt:R1","42|famA","gone"],["used:R1","famA","used"],["rt:R2","42|famA","new"],["fam:famA","{R1,R2}"]],
+     explain:"<code>GETDEL rt:R1</code> — R1 is consumed and remembered as <b>used</b>. A fresh <code>R2</code> joins the same family."},
+    {q:"step 4 · an old token comes back", qk:"bad", st:["ok","ok","ok","no"], keys:[["used:R1","famA","used"],["rt:R2","42|famA","gone"],["fam:famA","revoked","deny"]],
+     explain:"<code>rt:R1</code> is gone but <code>used:R1</code> exists → <span class=\"warn\">reuse detected</span>. Every token in <b>famA</b> is deleted."},
+    {q:"step 5 · the real user is logged out too", qk:"bad", st:["ok","ok","ok","no","no"], keys:[["used:R1","famA","used"],["fam:famA","revoked","deny"]],
+     explain:"<code>R2</code> no longer exists → <b>refresh token invalid</b>. Annoying for the user, fatal for the attacker — the right trade."},
+    {q:"step 6 · new login, then logout", qk:"ok", st:["ok","ok","ok","no","no","ok"], keys:[["rt:R3","42|famB","gone"],["deny:jti-7f3a","ttl 9m","deny"]],
+     explain:"Logout deletes <code>R3</code> and <b>denies the access token's jti</b> for its remaining 9 minutes. <span class=\"ok\">After that the key expires on its own.</span>"}
+  ], function(stage, fr){
+    var h = '<div class="vq '+(fr.qk||"")+'">'+fr.q+'</div>';
+    h += '<div class="lc"><div class="actors">'+evs(fr.st)+'</div>'+
+         '<div class="redis"><span class="pl">REDIS</span>'+redis(fr.keys)+'</div></div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

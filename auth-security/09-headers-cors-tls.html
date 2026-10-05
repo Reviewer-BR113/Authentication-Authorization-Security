@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 09 Headers, CORS &amp; TLS — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:330px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* cors stage */
+  .cs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr);gap:10px;align-items:start}
+  @media (max-width:760px){.cs{grid-template-columns:1fr}}
+  .node{border:1px solid var(--border-2);border-radius:12px;background:#070b12;padding:11px 12px;min-height:150px}
+  .node .pl{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--faint);display:block;margin-bottom:7px}
+  .node .nv{font-family:var(--mono);font-size:.68rem;color:#cbd5e1;line-height:1.6;overflow-wrap:anywhere}
+  .node.hot{border-color:rgba(251,113,133,.5)} .node.ok{border-color:rgba(52,211,153,.5)} .node.no{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.05)}
+  .wire{display:flex;flex-direction:column;gap:6px}
+  .msg{font-family:var(--mono);font-size:.64rem;line-height:1.55;border-radius:9px;padding:8px 10px;border:1px solid var(--border);color:#cbd5e1;overflow-wrap:anywhere;opacity:.25;transition:all .3s}
+  .msg.on{opacity:1}
+  .msg.req.on{border-color:rgba(125,211,252,.5)} .msg.res.on{border-color:rgba(52,211,153,.5)} .msg.bad.on{border-color:rgba(248,113,113,.55)}
+  .msg .dir{display:block;font-size:.56rem;letter-spacing:.07em;color:var(--faint);margin-bottom:3px}
+  .msg b{color:#7DD3FC;font-weight:500} .msg.res b{color:#6ee7b7}
+  .nv .ok{color:var(--ok)} .nv .no{color:var(--bad)} .nv .dim{color:var(--faint)}
+
+  /* tls diagram */
+  .tls{display:grid;grid-template-columns:minmax(0,1fr) 60px minmax(0,1fr) 60px minmax(0,1fr);align-items:center;margin-top:20px}
+  @media (max-width:760px){.tls{grid-template-columns:1fr}.tls .tw{transform:rotate(90deg);height:40px}}
+  .tb{border:1px solid var(--border-2);border-radius:12px;background:var(--panel);padding:13px;text-align:center}
+  .tb b{display:block;font-size:.92rem}
+  .tb span{font-family:var(--mono);font-size:.64rem;color:var(--faint)}
+  .tb.term2{border-color:rgba(251,113,133,.45)}
+  .tw{display:flex;flex-direction:column;align-items:center;font-family:var(--mono);font-size:.58rem;gap:3px}
+  .tw .ln3{width:100%;height:3px;border-radius:2px}
+  .tw.s{color:var(--ok)} .tw.s .ln3{background:var(--ok)}
+  .tw.p{color:var(--faint)} .tw.p .ln3{background:repeating-linear-gradient(90deg,var(--border-2) 0 6px,transparent 6px 10px)}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 09</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 09</span> · 🛡️ Protocol</div>
+    <h1 class="rv d1">Headers, CORS <span class="grad">&amp; TLS</span></h1>
+    <p class="lead rv d2">Tell the browser exactly who may call you and how to treat your responses — over an encrypted connection.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>9a</b><span>CORS &amp; preflight</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>9b</b><span>security headers</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>9c</b><span>TLS &amp; secure cookies</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">9a</p>
+    <h2 class="rv">The preflight: the browser asks first</h2>
+    <p class="lead rv d1">Before a cross-origin <code>PATCH</code> with a token, the browser sends an <code>OPTIONS</code> and waits for permission.</p>
+
+    <div class="rv d1" id="cViz" style="margin-top:20px">
+      <div class="stg" id="cStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/httpx/cors.go</span></div>
+<pre><span class="k">func</span> <span class="fn">CORS</span>(allowed []<span class="fn">string</span>, next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    fn := <span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        origin := r.Header.<span class="fn">Get</span>(<span class="str">"Origin"</span>)
+        w.<span class="fn">Header</span>().<span class="fn">Add</span>(<span class="str">"Vary"</span>, <span class="str">"Origin"</span>)
+        <span class="k">if</span> origin != <span class="str">""</span> &amp;&amp; slices.<span class="fn">Contains</span>(allowed, origin) {
+            h := w.<span class="fn">Header</span>()
+            h.<span class="fn">Set</span>(<span class="str">"Access-Control-Allow-Origin"</span>, origin)
+            h.<span class="fn">Set</span>(<span class="str">"Access-Control-Allow-Credentials"</span>, <span class="str">"true"</span>)
+            <span class="k">if</span> r.Method == http.MethodOptions {
+                h.<span class="fn">Set</span>(<span class="str">"Access-Control-Allow-Methods"</span>,
+                    <span class="str">"GET, POST, PATCH, DELETE"</span>)
+                h.<span class="fn">Set</span>(<span class="str">"Access-Control-Allow-Headers"</span>,
+                    <span class="str">"Authorization, Content-Type"</span>)
+                h.<span class="fn">Set</span>(<span class="str">"Access-Control-Max-Age"</span>, <span class="str">"600"</span>)
+                w.<span class="fn">WriteHeader</span>(http.StatusNoContent)
+                <span class="k">return</span>
+            }
+        }
+        <span class="k">if</span> r.Method == http.MethodOptions {
+            w.<span class="fn">WriteHeader</span>(http.StatusNoContent) <span class="com">// no CORS headers</span>
+            <span class="k">return</span>
+        }
+        next.<span class="fn">ServeHTTP</span>(w, r)
+    }
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(fn)
+}
+
+<span class="com">// allowlist comes from config (session 10)</span>
+h := <span class="fn">CORS</span>([]<span class="fn">string</span>{<span class="str">"https://app.example.com"</span>}, mux)</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/09 · two preflights</span></div>
+<pre><span class="out">OPTIONS from https://app.example.com → 204
+  <span class="hi">Access-Control-Allow-Origin: https://app.example.com</span>
+  Access-Control-Allow-Credentials: true
+  Access-Control-Allow-Methods: GET, POST, PATCH, DELETE
+  Access-Control-Allow-Headers: Authorization, Content-Type
+  Vary: Origin
+OPTIONS from https://evil.example → 204
+  Vary: Origin</span>
+<span class="comm"># no Allow-Origin header → the browser refuses to send the PATCH</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi no"><span class="bm">✗</span><span class="bt"><b><code>Allow-Origin: *</code> with credentials</b> is rejected by browsers — and reflecting any <code>Origin</code> back is worse. Use an exact allowlist.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b><code>Vary: Origin</code></b> stops a cache serving one origin's CORS answer to another.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>CORS is not access control.</b> The browser enforces it; <code>curl</code> ignores it. Auth still runs on every request.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">9b</p>
+    <h2 class="rv">Five headers on every response</h2>
+    <p class="lead rv d1">Each one switches off a browser behaviour an attacker would like to use.</p>
+
+    <div class="rv d1" style="margin-top:20px" data-run="compare">
+      <div class="cmptable">
+        <div class="cmphead"><div>Header</div><div class="h-v">Value</div><div class="h-mv">Stops</div></div>
+        <div class="cmprow" data-cr><div class="attr">X-Content-Type-Options</div><div>nosniff</div><div class="good">guessing a JSON upload is a script</div></div>
+        <div class="cmprow" data-cr><div class="attr">X-Frame-Options</div><div>DENY</div><div class="good">clickjacking in an iframe</div></div>
+        <div class="cmprow" data-cr><div class="attr">Content-Security-Policy</div><div>default-src 'none'</div><div class="good">loading any script, style or frame</div></div>
+        <div class="cmprow" data-cr><div class="attr">Referrer-Policy</div><div>no-referrer</div><div class="good">leaking URLs with ids / tokens</div></div>
+        <div class="cmprow" data-cr><div class="attr">Strict-Transport-Security</div><div>max-age=63072000</div><div class="good">downgrade to plain HTTP</div></div>
+      </div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/httpx/headers.go</span></div>
+<pre><span class="k">func</span> <span class="fn">SecureHeaders</span>(next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    fn := <span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        h := w.<span class="fn">Header</span>()
+        h.<span class="fn">Set</span>(<span class="str">"X-Content-Type-Options"</span>, <span class="str">"nosniff"</span>)
+        h.<span class="fn">Set</span>(<span class="str">"X-Frame-Options"</span>, <span class="str">"DENY"</span>)
+        h.<span class="fn">Set</span>(<span class="str">"Content-Security-Policy"</span>,
+            <span class="str">"default-src 'none'; frame-ancestors 'none'"</span>)
+        h.<span class="fn">Set</span>(<span class="str">"Referrer-Policy"</span>, <span class="str">"no-referrer"</span>)
+        h.<span class="fn">Set</span>(<span class="str">"Strict-Transport-Security"</span>,
+            <span class="str">"max-age=63072000; includeSubDomains"</span>)
+        next.<span class="fn">ServeHTTP</span>(w, r)
+    }
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(fn)
+}</pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">A JSON API can use the strictest CSP — <code>default-src 'none'</code> — because it serves no HTML.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Set headers <b>before</b> <code>next.ServeHTTP</code> — once the body starts, headers are sent.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">9c</p>
+    <h2 class="rv">TLS: somebody must terminate it</h2>
+    <p class="lead rv d1">Either Go serves HTTPS itself, or a load balancer does and forwards plain HTTP on a private network.</p>
+
+    <div class="tls rv d1">
+      <div class="tb"><b>Browser</b><span>https://api.example.com</span></div>
+      <div class="tw s"><span>TLS 1.3</span><div class="ln3"></div><span>encrypted</span></div>
+      <div class="tb term2"><b>Load balancer</b><span>terminates TLS · adds X-Forwarded-For</span></div>
+      <div class="tw p"><span>HTTP</span><div class="ln3"></div><span>private net</span></div>
+      <div class="tb"><b>Go API</b><span>:8080</span></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>cmd/api/main.go · when Go terminates TLS itself</span></div>
+<pre>srv := &amp;http.<span class="fn">Server</span>{
+    Addr:              <span class="str">":443"</span>,
+    Handler:           h,
+    ReadHeaderTimeout: <span class="num">5</span> * time.Second, <span class="com">// slow-loris guard</span>
+    ReadTimeout:       <span class="num">10</span> * time.Second,
+    WriteTimeout:      <span class="num">10</span> * time.Second,
+    IdleTimeout:       <span class="num">60</span> * time.Second,
+    TLSConfig:         &amp;tls.<span class="fn">Config</span>{MinVersion: tls.VersionTLS12},
+}
+<span class="k">go</span> http.<span class="fn">ListenAndServe</span>(<span class="str">":80"</span>, http.<span class="fn">HandlerFunc</span>(redirect))
+log.<span class="fn">Fatal</span>(srv.<span class="fn">ListenAndServeTLS</span>(<span class="str">"cert.pem"</span>, <span class="str">"key.pem"</span>))
+
+<span class="k">func</span> <span class="fn">redirect</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+    u := <span class="str">"https://"</span> + r.Host + r.URL.<span class="fn">RequestURI</span>()
+    http.<span class="fn">Redirect</span>(w, r, u, http.StatusMovedPermanently)
+}</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/09 · httptest TLS server  +  ./demos/09c</span></div>
+<pre><span class="out">  proto: HTTP/1.1  tls: <span class="hi">TLS 1.3</span>  cipher: TLS_AES_128_GCM_SHA256
+  plain http → <span class="em">400 Client sent an HTTP request to an HTTPS server.</span>
+  untrusted cert: Get "https://127.0.0.1:39139/users/me": tls: failed to verify certificate: <span class="em">x509: certificate signed by unknown authority</span>
+301 https://api.example.com/users/me?x=1     <span class="comm"># the :80 redirect</span></span></pre>
+    </div>
+
+    <div class="rv d1" style="margin-top:20px" data-run="compare">
+      <div class="cmptable">
+        <div class="cmphead"><div>Cookie flag</div><div class="h-v">Effect</div><div class="h-mv">For the refresh cookie</div></div>
+        <div class="cmprow" data-cr><div class="attr">Secure</div><div>sent over HTTPS only</div><div class="good">always</div></div>
+        <div class="cmprow" data-cr><div class="attr">HttpOnly</div><div>invisible to JavaScript</div><div class="good">always</div></div>
+        <div class="cmprow" data-cr><div class="attr">SameSite=Strict</div><div>not sent cross-site</div><div class="good">yes (Lax if you need links in)</div></div>
+        <div class="cmprow" data-cr><div class="attr">Path=/auth/refresh</div><div>sent to one route only</div><div class="good">yes</div></div>
+      </div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">Go's <code>http.Server</code> has <b>no timeouts by default</b> — always set them.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">HSTS only counts when received over HTTPS; after that the browser refuses plain HTTP for <code>max-age</code>.</span></div>
+      <div class="bi no"><span class="bm">✗</span><span class="bt">Never ship <code>InsecureSkipVerify: true</code> in a client — it turns TLS off without saying so.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">TASK</span>
+      <h4>Lock down the edges</h4>
+      <ul>
+        <li>Wrap the mux: <code>SecureHeaders(CORS(allowed, mux))</code>, allowlist from an env var.</li>
+        <li>Test: preflight from the allowed origin gets <code>Allow-Origin</code>; any other origin doesn't.</li>
+        <li>Run locally with <code>httptest.NewTLSServer</code> and assert <code>res.TLS.Version</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 09 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">CORS: exact origin allowlist, <code>Vary: Origin</code>, credentials only for listed origins.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">Five headers on every response: nosniff, DENY, strict CSP, no-referrer, HSTS.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">Terminate TLS (1.2+) in Go or at the load balancer; redirect :80 → :443.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Server timeouts always; cookies <code>Secure; HttpOnly; SameSite</code>.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="08-request-defense.html"><span class="dir">← Previous</span><b>Request Defense</b></a>
+  <a class="next" href="10-secrets-owasp.html"><span class="dir">Next session →</span><b>Secrets &amp; OWASP API Top 10</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 09 Headers, CORS &amp; TLS</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var M = {
+    pre: function(o){ return '<span class="dir">→ PREFLIGHT</span>OPTIONS /users/me<br><b>Origin:</b> '+o+'<br><b>Access-Control-Request-Method:</b> PATCH'; },
+    ok:  '<span class="dir">← 204</span><b>Allow-Origin:</b> https://app.example.com<br><b>Allow-Methods:</b> GET, POST, PATCH, DELETE<br><b>Allow-Credentials:</b> true',
+    no:  '<span class="dir">← 204</span>Vary: Origin<br><i>(no Allow-Origin)</i>',
+    real:'<span class="dir">→ REAL REQUEST</span>PATCH /users/me<br><b>Authorization:</b> Bearer eyJ…',
+    body:'<span class="dir">← 200</span>{"id":"7","name":"Asha K"}'
+  };
+  function msgs(list){
+    return list.map(function(m){ return '<div class="msg '+m[0]+(m[2]?" on":"")+'">'+m[1]+'</div>'; }).join("");
+  }
+  mkAlgo("cViz","cStage",[
+    {org:"https://app.example.com", q:"allowed origin · step 1", st:"hot", srv:"",
+     list:[["req",M.pre("https://app.example.com"),1],["res",M.ok,0],["req",M.real,0],["res",M.body,0]],
+     browser:'fetch("PATCH /users/me",<br>{credentials:"include"})<br><span class="dim">cross-origin + custom header → must ask first</span>',
+     explain:"The page at <code>app.example.com</code> calls the API on another origin. The browser <b>holds the real request</b> and sends a preflight."},
+    {org:"https://app.example.com", q:"allowed origin · step 2", st:"ok", srv:"ok",
+     list:[["req",M.pre("https://app.example.com"),1],["res",M.ok,1],["req",M.real,0],["res",M.body,0]],
+     browser:'Allow-Origin matches<br><span class="ok">✓ permission granted</span>',
+     explain:"Origin is on the allowlist → server echoes it in <code>Allow-Origin</code>, plus the allowed methods and headers."},
+    {org:"https://app.example.com", q:"allowed origin · step 3", st:"ok", srv:"ok",
+     list:[["req",M.pre("https://app.example.com"),1],["res",M.ok,1],["req",M.real,1],["res",M.body,1]],
+     browser:'<span class="ok">✓ response readable by JS</span><br><span class="dim">preflight cached 600 s</span>',
+     explain:"Only now is the real <code>PATCH</code> sent. Auth and ownership still run as usual. <span class=\"ok\">The page can read the response.</span>"},
+    {org:"https://evil.example", q:"other origin · step 1", st:"hot", srv:"",
+     list:[["req",M.pre("https://evil.example"),1],["res",M.no,0],["req",M.real,0],["res",M.body,0]],
+     browser:'a malicious site tries the<br>same fetch with credentials',
+     explain:"A page on <code>evil.example</code> tries the same call, hoping the user's cookie rides along."},
+    {org:"https://evil.example", q:"other origin · step 2", st:"no", srv:"no",
+     list:[["req",M.pre("https://evil.example"),1],["res",M.no,1],["req",M.real,0],["res",M.body,0]],
+     browser:'<span class="no">✗ blocked by CORS policy</span><br><span class="dim">real request never sent</span>',
+     explain:"Not on the list → <b>no <code>Allow-Origin</code></b> in the answer. <span class=\"warn\">The browser stops here</span> — the PATCH is never sent."},
+    {org:"curl", q:"no browser at all", st:"hot", srv:"",
+     list:[["req",'<span class="dir">→ DIRECT</span>curl -X PATCH /users/me<br><b>Authorization:</b> Bearer eyJ…',1],["res",'<span class="dir">← 200 / 401 / 404</span>decided by auth, not CORS',1]],
+     browser:'curl, Postman, a script<br><span class="dim">ignore CORS entirely</span>',
+     explain:"CORS protects <b>users' browsers</b>, not your API. Without a browser there's no preflight — which is why auth runs on every request anyway."}
+  ], function(stage, fr){
+    var h = '<div class="vq '+(fr.st==="no"?"bad":(fr.st==="ok"?"ok":""))+'">'+fr.q+' · Origin: '+fr.org+'</div>';
+    h += '<div class="cs">'+
+      '<div class="node '+fr.st+'"><span class="pl">BROWSER · '+fr.org+'</span><div class="nv">'+fr.browser+'</div></div>'+
+      '<div class="wire">'+msgs(fr.list)+'</div>'+
+      '<div class="node '+(fr.srv||"")+'"><span class="pl">API · CORS middleware</span><div class="nv">allowed = [<br>&nbsp;"https://app.example.com"<br>]'+
+        (fr.srv==="ok"?'<br><span class="ok">origin ∈ allowed ✓</span>':(fr.srv==="no"?'<br><span class="no">origin ∉ allowed</span>':''))+'</div></div>'+
+    '</div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>

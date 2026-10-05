@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 07 Fine-Grained Permissions — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+  .code{margin-top:20px}
+
+  /* attribute diagram */
+  .abac{display:grid;grid-template-columns:minmax(0,1.6fr) 34px minmax(0,1fr) 34px minmax(0,.8fr);align-items:center;margin-top:22px}
+  @media (max-width:760px){.abac{grid-template-columns:1fr}.abac .dar{transform:rotate(90deg);padding:6px 0}}
+  .attrs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .at{border:1px solid var(--border-2);border-radius:11px;background:var(--panel);padding:11px 12px;opacity:.35;transform:translateY(6px);transition:all .45s}
+  .at.lit{opacity:1;transform:none}
+  .at .al{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;display:block;margin-bottom:5px}
+  .at .av{font-family:var(--mono);font-size:.68rem;color:#cbd5e1;line-height:1.55}
+  .at.s{border-color:rgba(251,113,133,.4)} .at.s .al{color:#FDA4AF}
+  .at.a{border-color:rgba(167,139,250,.4)} .at.a .al{color:#c4b5fd}
+  .at.r{border-color:rgba(125,211,252,.4)} .at.r .al{color:#7DD3FC}
+  .at.e{border-color:rgba(251,191,36,.4)} .at.e .al{color:#fcd34d}
+  .pol{border:1px solid var(--border-2);border-radius:12px;background:#070b12;padding:12px;opacity:.35;transition:all .45s}
+  .pol.lit{opacity:1;border-color:rgba(251,113,133,.45)}
+  .pol .al{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:var(--faint);display:block;margin-bottom:7px}
+  .pr{font-family:var(--mono);font-size:.62rem;color:#cbd5e1;padding:4px 6px;border-radius:6px;border:1px solid var(--border);margin-bottom:4px}
+  .pr.d{color:#fca5a5;border-color:rgba(248,113,113,.3)} .pr.y{color:#6ee7b7;border-color:rgba(52,211,153,.3)}
+  .pr.def{color:var(--faint);border-style:dashed}
+  .dec{display:flex;flex-direction:column;gap:8px;opacity:.35;transition:opacity .45s}
+  .dec.lit{opacity:1}
+  .dv{font-family:var(--mono);font-size:.78rem;text-align:center;border-radius:10px;padding:10px;border:1px solid}
+  .dv.y{color:var(--ok);border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.07)}
+  .dv.n{color:var(--bad);border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.07)}
+  .dv small{display:block;color:var(--faint);font-size:.6rem;margin-top:3px}
+  .dar{display:grid;place-items:center;color:var(--faint);opacity:.35;transition:opacity .45s}
+  .dar.lit{opacity:1}
+
+  /* layered checks */
+  .layers{display:flex;flex-direction:column;gap:8px;margin-top:20px;max-width:640px}
+  .ly{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--border-2);border-radius:12px;background:var(--panel);padding:12px 14px}
+  .ly .ln2{font-family:var(--mono);font-size:.72rem;color:#FB7185;text-align:center}
+  .ly .lt b{display:block;font-size:.92rem;color:var(--text)}
+  .ly .lt span{font-size:.82rem;color:var(--muted)}
+  .ly .lq{font-family:var(--mono);font-size:.62rem;color:var(--faint);white-space:nowrap}
+  @media (max-width:560px){.ly .lq{display:none}}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 07</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 07</span> · 🧮 Policies</div>
+    <h1 class="rv d1">Fine-Grained <span class="grad">Permissions</span></h1>
+    <p class="lead rv d2">When "is this user an editor?" isn't enough, decide on attributes instead.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>7a</b><span>ABAC attributes</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>7b</b><span>policy as ordered rules</span></div></div>
+      <div class="outcome rv d3"><span class="ck">✓</span><div><b>7c</b><span>the three layers together</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">7a</p>
+    <h2 class="rv">Four groups of facts, one decision</h2>
+    <p class="lead rv d1">"Editors may edit drafts in their own department during office hours" — that rule needs all four.</p>
+
+    <div class="rv d1" data-run="abac">
+      <div class="abac">
+        <div class="attrs">
+          <div class="at s" data-f><span class="al">SUBJECT</span><div class="av">id 8 · role editor<br>dept sales · grants []</div></div>
+          <div class="at a" data-f><span class="al">ACTION</span><div class="av">edit</div></div>
+          <div class="at r" data-f><span class="al">RESOURCE</span><div class="av">owner 7 · dept sales<br>status draft</div></div>
+          <div class="at e" data-f><span class="al">ENVIRONMENT</span><div class="av">time 11:00<br>(also: IP, device…)</div></div>
+        </div>
+        <div class="dar" data-f>→</div>
+        <div class="pol" data-f><span class="al">POLICY · first match wins</span>
+          <div class="pr y">✓ admin → anything</div>
+          <div class="pr d">✗ publish without grant</div>
+          <div class="pr d">✗ published → read-only</div>
+          <div class="pr y">✓ same dept can read</div>
+          <div class="pr y">✓ owner edits own draft</div>
+          <div class="pr y">✓ editor · same dept · 9–18h</div>
+          <div class="pr y">✓ granted publisher · same dept</div>
+          <div class="pr def">· default deny</div>
+        </div>
+        <div class="dar" data-f>→</div>
+        <div class="dec" data-f>
+          <div class="dv y">ALLOW<small>editor, same dept, office hours</small></div>
+          <div class="dv n">at 22:00 → DENY<small>default deny</small></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rv d1" style="margin-top:22px" data-run="compare">
+      <div class="cmptable">
+        <div class="cmphead"><div></div><div class="h-v">RBAC</div><div class="h-mv">ABAC</div></div>
+        <div class="cmprow" data-cr><div class="attr">decides on</div><div>role only</div><div>subject + action + resource + context</div></div>
+        <div class="cmprow" data-cr><div class="attr">rule example</div><div>moderators delete posts</div><div>editors edit own-dept drafts, 9–18h</div></div>
+        <div class="cmprow" data-cr><div class="attr">complexity</div><div class="good">tiny map</div><div class="warn">policy you must test</div></div>
+        <div class="cmprow" data-cr><div class="attr">use when</div><div>coarse, app-wide access</div><div>rules depend on the data or the moment</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">7b</p>
+    <h2 class="rv">A policy is a list of rules, checked in order</h2>
+    <p class="lead rv d1">Each rule matches or doesn't; the first match decides; nothing matching means no.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/authz/policy.go</span></div>
+<pre><span class="k">type</span> <span class="fn">Req</span> <span class="k">struct</span> {
+    Sub <span class="fn">Subject</span>   <span class="com">// id, role, dept, grants</span>
+    Act <span class="fn">string</span>    <span class="com">// "read", "edit", "publish"</span>
+    Res <span class="fn">Resource</span>  <span class="com">// owner, dept, status</span>
+    Now time.<span class="fn">Time</span> <span class="com">// environment</span>
+}
+
+<span class="k">type</span> <span class="fn">Rule</span> <span class="k">struct</span> {
+    Name  <span class="fn">string</span>
+    Match <span class="k">func</span>(q <span class="fn">Req</span>) <span class="fn">bool</span>
+    Allow <span class="fn">bool</span>
+}
+
+<span class="k">var</span> policy = []<span class="fn">Rule</span>{
+    {<span class="str">"publish needs explicit grant"</span>, <span class="k">func</span>(q <span class="fn">Req</span>) <span class="fn">bool</span> {
+        <span class="k">return</span> q.Act == <span class="str">"publish"</span> &amp;&amp;
+            !slices.<span class="fn">Contains</span>(q.Sub.Grants, <span class="str">"doc:publish"</span>)
+    }, <span class="k">false</span>},
+    {<span class="str">"owner edits own draft"</span>, <span class="k">func</span>(q <span class="fn">Req</span>) <span class="fn">bool</span> {
+        <span class="k">return</span> q.Act == <span class="str">"edit"</span> &amp;&amp; q.Sub.ID == q.Res.OwnerID
+    }, <span class="k">true</span>},
+    <span class="com">// … 5 more rules</span>
+}
+
+<span class="k">func</span> <span class="fn">Decide</span>(q <span class="fn">Req</span>) (<span class="fn">bool</span>, <span class="fn">string</span>) {
+    <span class="k">for</span> _, rule := <span class="k">range</span> policy {
+        <span class="k">if</span> rule.<span class="fn">Match</span>(q) {
+            <span class="k">return</span> rule.Allow, rule.Name
+        }
+    }
+    <span class="k">return</span> <span class="k">false</span>, <span class="str">"default deny"</span>
+}</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/07</span></div>
+<pre><span class="out">asha  edit    draft     @11:00 → <span class="hi">ALLOW</span>  (owner edits own draft)
+ravi  edit    draft     @11:00 → <span class="hi">ALLOW</span>  (editor, same dept, office hours)
+ravi  edit    draft     @22:00 → <span class="em">DENY</span>   (default deny)
+omar  edit    draft     @11:00 → <span class="em">DENY</span>   (default deny)
+ravi  publish draft     @11:00 → <span class="em">DENY</span>   (publish needs explicit grant)
+lead  publish draft     @11:00 → <span class="hi">ALLOW</span>  (granted publisher, same dept)
+asha  edit    published @11:00 → <span class="em">DENY</span>   (published docs are read-only)
+omar  read    published @11:00 → <span class="em">DENY</span>   (default deny)</span></pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/07order · same rules, "read-only" moved below "owner edits"</span></div>
+<pre><span class="out">asha  edit    published @11:00 → <span class="em">ALLOW  (owner edits own draft)</span></span>
+<span class="comm"># one swapped line — and a published doc is editable again</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Deny rules go first.</b> Order is part of the policy — the second run proves it.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Explicit grants</b> (<code>doc:publish</code>) give one user a power their role doesn't have — store them in a <code>user_permissions</code> table.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Return the <b>rule name</b> with the decision and log it — "why was I denied?" becomes answerable.</span></div>
+      <div class="bi ok"><span class="bm">✓</span><span class="bt">The table above is your test suite: one row per case, run on every change.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="c">
+  <div class="container">
+    <p class="eyebrow rv">7c</p>
+    <h2 class="rv">Three layers, each asking a narrower question</h2>
+    <p class="lead rv d1">Most APIs need RBAC and ownership; add ABAC only where a rule depends on the data.</p>
+
+    <div class="layers rv d1">
+      <div class="ly"><span class="ln2">1</span><div class="lt"><b>Role / permission</b><span>May this kind of user do this at all?</span></div><span class="lq">RequirePerm · 05</span></div>
+      <div class="ly"><span class="ln2">2</span><div class="lt"><b>Ownership</b><span>Is this particular row theirs?</span></div><span class="lq">OwnerOrAdmin · 06</span></div>
+      <div class="ly"><span class="ln2">3</span><div class="lt"><b>Attributes</b><span>Given its state and the moment — still yes?</span></div><span class="lq">Decide(q) · 07</span></div>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt">Layers 1–2 fit in middleware. Layer 3 usually needs the loaded resource, so it runs <b>in the service</b>.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Keep every check in one <code>authz</code> package — never scattered <code>if user.Role == …</code> in handlers.</span></div>
+    </div>
+
+    <div class="task rv d1">
+      <span class="tl">TASK</span>
+      <h4>Write — and break — a policy</h4>
+      <ul>
+        <li>Implement the 7 rules and the 8 cases above as a table-driven test.</li>
+        <li>Add: "nobody edits after a doc is archived". Where must it go in the list?</li>
+        <li>Swap two rules on purpose and watch which test fails.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 07 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">ABAC decides on subject, action, resource and environment together.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt">A policy is ordered rules: deny rules first, first match wins, default deny.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt">Explicit per-user grants cover the exceptions roles can't.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Role → ownership → attributes: each layer narrows the previous one.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="06-ownership-idor.html"><span class="dir">← Previous</span><b>Ownership &amp; IDOR</b></a>
+  <a class="next" href="08-request-defense.html"><span class="dir">Next session →</span><b>Request Defense</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 07 Fine-Grained Permissions</div>
+<script src="../assets/app.js"></script>
+<script>
+SQLViz.register("abac", function(el){
+  var s=el.querySelectorAll("[data-f]"), t=SQLViz.timers(el);
+  s.forEach(function(x){ x.classList.remove("lit"); });
+  if(SQLViz.reduce){ s.forEach(function(x){ x.classList.add("lit"); }); return; }
+  s.forEach(function(x,i){ t.push(setTimeout(function(){ x.classList.add("lit"); }, 220*i+200)); });
+});
+</script>
+</body>
+</html>

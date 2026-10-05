@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auth &amp; Security · 05 Role-Based Access Control — Lecture</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  section .lead{max-width:66ch}
+  /* overflow guards */
+  .split>*{min-width:0} .sql,.term{max-width:100%} .sql pre,.term pre{overflow-x:auto} pre.sql{overflow-x:auto}
+  .cmptable{overflow-x:auto} .cmphead,.cmprow{min-width:430px}
+  .callout p,.bi .bt,.task li{overflow-wrap:anywhere}
+
+  .bl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .bi{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;align-items:baseline}
+  .bi .bm{color:#FB7185;font-family:var(--mono);font-size:.74rem}
+  .bi .bt{font-size:.95rem;color:#c5d1e0;line-height:1.6}
+  .bi .bt b{color:var(--text)}
+  .bi.no .bm{color:var(--bad)} .bi.ok .bm{color:var(--ok)}
+
+  .task{border:1px solid rgba(251,113,133,.32);border-radius:14px;background:rgba(251,113,133,.05);padding:18px 20px;margin-top:26px}
+  .task .tl{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:#FB7185;display:block;margin-bottom:9px}
+  .task h4{margin:0 0 8px;font-size:1rem}
+  .task ul{margin:0;padding-left:18px;font-size:.9rem;color:#c5d1e0;line-height:1.7}
+
+  .code{margin-top:20px}
+  .stg{background:#0a0f18;border:1px solid var(--border-2);border-radius:12px;padding:18px;min-height:330px}
+  .vq{text-align:center;font-family:var(--mono);font-size:.75rem;color:#FDA4AF;border:1px dashed rgba(251,113,133,.45);border-radius:9px;padding:9px 11px;margin-bottom:14px}
+  .vq.ok{border-color:rgba(52,211,153,.45);color:#6ee7b7} .vq.bad{border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .vn{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;margin-top:14px;color:var(--faint)}
+  .vn.green{color:var(--ok)} .vn.red{color:var(--bad)} .vn.acc{color:#FDA4AF}
+
+  /* matrix */
+  .mx{overflow-x:auto}
+  .mxg{display:grid;grid-template-columns:110px repeat(4,minmax(96px,1fr));gap:6px;min-width:520px}
+  .mh{font-family:var(--mono);font-size:.6rem;color:var(--faint);text-align:center;padding:4px 2px;line-height:1.4}
+  .mh b{display:block;color:#cbd5e1;font-weight:500;font-size:.64rem}
+  .mr{font-family:var(--mono);font-size:.72rem;color:#cbd5e1;display:flex;align-items:center;padding-left:4px}
+  .mr.on{color:#FDA4AF}
+  .mc{height:42px;border-radius:9px;border:1px solid var(--border);display:grid;place-items:center;font-family:var(--mono);font-size:.78rem;color:var(--faint);background:#070b12;transition:all .3s}
+  .mc.ok{border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.1);color:#6ee7b7}
+  .mc.no{border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.08);color:#fca5a5}
+  .mc.un{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.07);color:#fcd34d}
+  .mc.hot{box-shadow:0 0 0 2px rgba(251,113,133,.45)}
+  .perms{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px;min-height:26px}
+  .pchip{font-family:var(--mono);font-size:.64rem;padding:4px 9px;border-radius:999px;border:1px solid rgba(251,113,133,.4);color:#FDA4AF;background:rgba(251,113,133,.06)}
+  .pchip.none{border-color:var(--border-2);color:var(--faint);background:none}
+</style>
+</head>
+<body>
+<div class="scrollbar" id="scrollbar"></div>
+<nav class="top">
+  <a class="logo" href="../index.html"><span class="g">🎓</span><span>Mentoring</span></a>
+  <div class="crumb">Auth &amp; Security · 05</div>
+  <div class="topnav"><a href="../index.html">← All subjects</a><a class="all" href="overview.html">Track overview</a></div>
+</nav>
+
+<header class="page-hero">
+  <div class="container">
+    <div class="kicker rv"><span class="n">Session 05</span> · 🎭 Roles</div>
+    <h1 class="rv d1">Role-Based <span class="grad">Access Control</span></h1>
+    <p class="lead rv d2">Give users roles, give roles permissions — and let routes ask only for permissions.</p>
+    <div class="outcomes">
+      <div class="outcome rv d1"><span class="ck">✓</span><div><b>5a</b><span>roles &amp; permission map</span></div></div>
+      <div class="outcome rv d2"><span class="ck">✓</span><div><b>5b</b><span>enforcement middleware</span></div></div>
+    </div>
+  </div>
+</header>
+
+<section id="a">
+  <div class="container">
+    <p class="eyebrow rv">5a</p>
+    <h2 class="rv">Three roles, four routes, one map</h2>
+    <p class="lead rv d1">Each cell is a real status code from <code>go run ./demos/05</code>. Fill the matrix one role at a time.</p>
+
+    <div class="rv d1" id="xViz" style="margin-top:20px">
+      <div class="stg" id="xStage"></div>
+      <div class="av-explain"></div>
+      <div class="av-bar"></div>
+    </div>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/authz/rbac.go</span></div>
+<pre><span class="k">type</span> <span class="fn">Role</span> <span class="fn">string</span>
+<span class="k">type</span> <span class="fn">Perm</span> <span class="fn">string</span>
+
+<span class="k">const</span> (
+    RoleUser      <span class="fn">Role</span> = <span class="str">"user"</span>
+    RoleModerator <span class="fn">Role</span> = <span class="str">"moderator"</span>
+    RoleAdmin     <span class="fn">Role</span> = <span class="str">"admin"</span>
+)
+
+<span class="k">const</span> (
+    ReadProfile <span class="fn">Perm</span> = <span class="str">"profile:read"</span>
+    DeletePost  <span class="fn">Perm</span> = <span class="str">"post:delete"</span>
+    ListUsers   <span class="fn">Perm</span> = <span class="str">"user:list"</span>
+    SetRole     <span class="fn">Perm</span> = <span class="str">"user:set_role"</span>
+)
+
+<span class="k">var</span> rolePerms = <span class="k">map</span>[<span class="fn">Role</span>][]<span class="fn">Perm</span>{
+    RoleUser:      {ReadProfile},
+    RoleModerator: {ReadProfile, DeletePost},
+    RoleAdmin:     {ReadProfile, DeletePost, ListUsers, SetRole},
+}
+
+<span class="k">func</span> <span class="fn">Can</span>(r <span class="fn">Role</span>, p <span class="fn">Perm</span>) <span class="fn">bool</span> {
+    <span class="k">for</span> _, have := <span class="k">range</span> rolePerms[r] {
+        <span class="k">if</span> have == p {
+            <span class="k">return</span> <span class="k">true</span>
+        }
+    }
+    <span class="k">return</span> <span class="k">false</span> <span class="com">// unknown role or perm: deny</span>
+}</pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Routes ask for permissions, not roles.</b> Adding a "support" role is one new map line — no route changes.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Typed <code>Role</code> / <code>Perm</code> constants — a typo is a compile error, not a silent 403.</span></div>
+      <div class="bi ok"><span class="bm">✓</span><span class="bt"><b>Default deny:</b> anything not in the map — even a role called <code>superuser</code> — gets nothing.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="b">
+  <div class="container">
+    <p class="eyebrow rv">5b</p>
+    <h2 class="rv">The middleware that enforces it</h2>
+    <p class="lead rv d1">It runs after <code>RequireAuth</code>, reads the role from the claims and answers 403 on its own.</p>
+
+    <div class="sql rv d1 code">
+      <div class="bar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>internal/authz/middleware.go</span></div>
+<pre><span class="k">func</span> <span class="fn">RequirePerm</span>(p <span class="fn">Perm</span>, next http.<span class="fn">Handler</span>) http.<span class="fn">Handler</span> {
+    fn := <span class="k">func</span>(w http.<span class="fn">ResponseWriter</span>, r *http.<span class="fn">Request</span>) {
+        c := auth.<span class="fn">ClaimsFrom</span>(r.<span class="fn">Context</span>())
+        <span class="k">if</span> c == <span class="k">nil</span> || !<span class="fn">Can</span>(<span class="fn">Role</span>(c.Role), p) {
+            http.<span class="fn">Error</span>(w, <span class="str">"forbidden"</span>, <span class="num">403</span>)
+            <span class="k">return</span>
+        }
+        next.<span class="fn">ServeHTTP</span>(w, r)
+    }
+    <span class="k">return</span> http.<span class="fn">HandlerFunc</span>(fn)
+}
+
+<span class="com">// wiring: authenticate first, then authorize</span>
+protect := <span class="k">func</span>(p <span class="fn">Perm</span>) http.<span class="fn">Handler</span> {
+    <span class="k">return</span> auth.<span class="fn">RequireAuth</span>(<span class="fn">RequirePerm</span>(p, h))
+}
+mux.<span class="fn">Handle</span>(<span class="str">"GET /me"</span>, <span class="fn">protect</span>(ReadProfile))
+mux.<span class="fn">Handle</span>(<span class="str">"DELETE /posts/{id}"</span>, <span class="fn">protect</span>(DeletePost))
+mux.<span class="fn">Handle</span>(<span class="str">"GET /admin/users"</span>, <span class="fn">protect</span>(ListUsers))
+mux.<span class="fn">Handle</span>(<span class="str">"PATCH /admin/users/{id}/role"</span>, <span class="fn">protect</span>(SetRole))</pre>
+    </div>
+
+    <div class="term rv d1">
+      <div class="tbar"><i class="r"></i><i class="y"></i><i class="gg"></i><span>go run ./demos/05 · one real JWT per role</span></div>
+<pre><span class="out">            me   del  list role
+(no token)  <span class="em">401  401  401  401</span>
+user        <span class="hi">200</span>  403  403  403
+moderator   <span class="hi">200  200</span>  403  403
+admin       <span class="hi">200  200  200  200</span>
+superuser   403  403  403  403</span>
+<span class="comm"># unknown role → denied everywhere</span></pre>
+    </div>
+
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">→</span><span class="bt"><b>Order matters:</b> <code>RequireAuth</code> outside, <code>RequirePerm</code> inside — so no token is 401, wrong role is 403.</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">The role lives in the JWT, so a <b>demotion takes effect at the next refresh</b> (≤ 15 min). Need it instant? Deny the <code>jti</code> (session 04).</span></div>
+      <div class="bi"><span class="bm">→</span><span class="bt">Hiding an admin button in the UI is <b>not</b> access control — the server check is.</span></div>
+    </div>
+
+    <div class="callout mistake rv d1" style="margin-top:18px"><span class="lbl">Mistake</span><p>Letting users send their own role, e.g. <code>{"role":"admin"}</code> in the register body. Roles are only ever set by an admin endpoint guarded by <code>SetRole</code>.</p></div>
+
+    <div class="task rv d1">
+      <span class="tl">TASK</span>
+      <h4>Add a role without touching a route</h4>
+      <ul>
+        <li>Add <code>RoleSupport</code> that can <code>ReadProfile</code> and <code>ListUsers</code>.</li>
+        <li>Print the matrix again — only one new row should change.</li>
+        <li>Write a table-driven test that asserts every cell.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="recap" style="border-bottom:none">
+  <div class="container">
+    <p class="eyebrow rv">Recap</p>
+    <h2 class="rv">Session 05 in four lines</h2>
+    <div class="bl rv d1">
+      <div class="bi"><span class="bm">1</span><span class="bt">Users have roles; roles map to permissions; routes require permissions.</span></div>
+      <div class="bi"><span class="bm">2</span><span class="bt"><code>Can(role, perm)</code> returns false for anything unknown — default deny.</span></div>
+      <div class="bi"><span class="bm">3</span><span class="bt"><code>RequireAuth(RequirePerm(p, h))</code>: 401 first, 403 second.</span></div>
+      <div class="bi"><span class="bm">4</span><span class="bt">Role changes reach the token at refresh — or immediately via the denylist.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pager">
+  <a class="prev" href="04-token-lifecycle.html"><span class="dir">← Previous</span><b>Token Lifecycle</b></a>
+  <a class="next" href="06-ownership-idor.html"><span class="dir">Next session →</span><b>Ownership &amp; IDOR</b></a>
+</footer>
+<div class="footer">Mentoring · Auth &amp; Security · 05 Role-Based Access Control</div>
+<script src="../assets/app.js"></script>
+<script>
+function mkAlgo(vizId, stageId, frames, render){
+  var root=document.getElementById(vizId);
+  if(!root || !window.AlgoViz) return;
+  var stage=document.getElementById(stageId);
+  AlgoViz(root, frames.map(function(fr){
+    return { explain: fr.explain, apply: function(){ render(stage, fr); } };
+  }));
+}
+
+(function(){
+  var ROUTES = [["GET /me","profile:read"],["DELETE /posts/{id}","post:delete"],["GET /admin/users","user:list"],["PATCH …/role","user:set_role"]];
+  var ROWS = ["(no token)","user","moderator","admin","superuser"];
+  var CODES = {
+    "(no token)":[401,401,401,401],
+    "user":[200,403,403,403],
+    "moderator":[200,200,403,403],
+    "admin":[200,200,200,200],
+    "superuser":[403,403,403,403]
+  };
+  var PERMS = {
+    "user":["profile:read"],
+    "moderator":["profile:read","post:delete"],
+    "admin":["profile:read","post:delete","user:list","user:set_role"],
+    "superuser":[],
+    "(no token)":null
+  };
+  mkAlgo("xViz","xStage",[
+    {filled:[], explain:"Four routes, each needing <b>one permission</b>. Five callers. Nothing decided yet."},
+    {filled:["user"], cur:"user",
+     explain:"<b>user</b> has only <code>profile:read</code> → 200 on <code>/me</code>, <span class=\"warn\">403</span> everywhere else."},
+    {filled:["user","moderator"], cur:"moderator",
+     explain:"<b>moderator</b> adds <code>post:delete</code> — one more green cell."},
+    {filled:["user","moderator","admin"], cur:"admin",
+     explain:"<b>admin</b> holds all four permissions → 200 across the row."},
+    {filled:["user","moderator","admin","(no token)"], cur:"(no token)",
+     explain:"No token never reaches the role check: <code>RequireAuth</code> stops it with <b>401</b>, not 403."},
+    {filled:["user","moderator","admin","(no token)","superuser"], cur:"superuser",
+     explain:"A signed token with an <b>unknown role</b>. It's not in the map, so <code>Can</code> returns false. <span class=\"ok\">Default deny — 403 everywhere.</span>"}
+  ], function(stage, fr){
+    var h = '<div class="mx"><div class="mxg"><div></div>';
+    ROUTES.forEach(function(r){ h += '<div class="mh"><b>'+r[0]+'</b>'+r[1]+'</div>'; });
+    ROWS.forEach(function(row){
+      var on = fr.filled.indexOf(row)>=0, cur = fr.cur===row;
+      h += '<div class="mr'+(cur?" on":"")+'">'+row+'</div>';
+      CODES[row].forEach(function(code){
+        var cls = !on ? "" : (code===200?"ok":(code===401?"un":"no"));
+        h += '<div class="mc '+cls+(cur?" hot":"")+'">'+(on?code:"·")+'</div>';
+      });
+    });
+    h += '</div></div>';
+    var p = fr.cur ? PERMS[fr.cur] : undefined;
+    h += '<div class="perms">';
+    if(p===null) h += '<span class="pchip none">no claims — never authenticated</span>';
+    else if(p && !p.length) h += '<span class="pchip none">rolePerms["superuser"] → nothing</span>';
+    else if(p) p.forEach(function(x){ h += '<span class="pchip">'+x+'</span>'; });
+    h += '</div>';
+    stage.innerHTML = h;
+  });
+})();
+</script>
+</body>
+</html>
